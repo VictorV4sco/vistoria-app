@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+
+import pytest
+
 from app.models.party import Party
 from app.models.property import Property
 from app.models.report import Report
@@ -27,6 +31,29 @@ def test_create_report_with_default_values() -> None:
     assert report.complementary_information.general_notes == ""
     assert report.complementary_information.issue_location == ""
     assert report.protected_from_cleanup is False
+
+
+def test_default_report_timestamps_are_utc() -> None:
+    report = Report()
+
+    assert report.created_at.tzinfo is UTC
+    assert report.updated_at.tzinfo is UTC
+
+
+def test_report_normalizes_aware_timestamps_to_utc() -> None:
+    timestamp = datetime.fromisoformat("2026-09-24T10:20:30.123456-03:00")
+    report = Report(created_at=timestamp, updated_at=timestamp)
+
+    assert report.created_at == timestamp
+    assert report.updated_at == timestamp
+    assert report.created_at.tzinfo is UTC
+    assert report.updated_at.tzinfo is UTC
+
+
+@pytest.mark.parametrize("field", ["created_at", "updated_at"])
+def test_report_rejects_naive_timestamps(field: str) -> None:
+    with pytest.raises(ValueError, match=field):
+        Report(**{field: datetime(2026, 9, 24, 10, 20)})
 
 
 def test_reports_do_not_share_mutable_defaults() -> None:

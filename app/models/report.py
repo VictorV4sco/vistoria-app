@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from app.models.complementary_information import ComplementaryInformation
@@ -13,8 +13,8 @@ class Report:
     id: str = field(default_factory=lambda: str(uuid4()))
     version: int = 1
     sections: list[Section] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     report_type: str = ""
     title: str = ""
     code: str = ""
@@ -28,6 +28,14 @@ class Report:
         default_factory=ComplementaryInformation
     )
     protected_from_cleanup: bool = False
+
+    def __post_init__(self) -> None:
+        """Store aware timestamps in UTC; a missing timezone cannot be inferred."""
+        for name in ("created_at", "updated_at"):
+            value = getattr(self, name)
+            if value.utcoffset() is None:
+                raise ValueError(f"{name} must be timezone-aware")
+            setattr(self, name, value.astimezone(UTC))
 
     def add_section(self, section: Section) -> None:
         self.sections.append(section)
