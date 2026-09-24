@@ -1,34 +1,191 @@
+# ============================================================
 # Python
+# ============================================================
+
 __pycache__/
 *.py[cod]
+*$py.class
+
+*.so
+*.pyd
+
+*.egg
 *.egg-info/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+.eggs/
 
-# Virtual environments
-.venv/
-venv/
-
-# IDE
-.idea/
-.vscode/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build / packaging
 build/
 dist/
-*.spec
+wheels/
+pip-wheel-metadata/
 
-# Local application data
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ============================================================
+# Virtual environments
+# ============================================================
+
+.venv/
+venv/
+env/
+ENV/
+
+# ============================================================
+# IDEs / editors
+# ============================================================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================================
+# Operating system
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Secrets / credentials
+# ============================================================
+
+.env
+.env.*
+*.env
+
+secrets/
+.secret/
+*.secret
+
+*.pem
+*.key
+*.p12
+*.pfx
+
+credentials.json
+
+# ============================================================
+# OpenAI / Codex local files
+# ============================================================
+
+.codex/
+.openai/
+
+codex.json
+openai.json
+
+# ============================================================
+# Local-only configuration
+# ============================================================
+
 config.json
+config.local.json
+settings.local.json
+*.local
+
+# ============================================================
+# Logs
+# ============================================================
+
 logs/
 *.log
 
-# Generated/temporary documents
+# ============================================================
+# Temporary files
+# ============================================================
+
 *.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+~$*
 ~$*.docx
+
+# ============================================================
+# Application local data
+# ============================================================
+
+Documentos/
+Vistorias/
+Projetos/
+Lixeira/
+
+*.vistoria
+
+# ============================================================
+# Client / generated documents
+# ============================================================
+
+*.docx
+*.pdf
+
+# Keep official Word templates under version control
+!templates/*.docx
+
+# ============================================================
+# Images from real inspections / local projects
+# ============================================================
+
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
+
+# Keep generic application assets under version control
+!assets/**/*.jpg
+!assets/**/*.jpeg
+!assets/**/*.png
+!assets/**/*.webp
+
+# ============================================================
+# SQLite / local databases, if ever created accidentally
+# ============================================================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================================
+# PyInstaller
+# ============================================================
+
+*.spec
+
+# ============================================================
+# Installer / release artifacts
+# ============================================================
+
+*.exe
+*.msi
+*.zip
+*.tar
+*.tar.gz
+
+# ============================================================
+# Docker local overrides
+# ============================================================
+
+docker-compose.override.yml
+compose.override.yaml
+
+# ============================================================
+# Miscellaneous local files
+# ============================================================
+
+.cache/
+tmp/
+temp/
