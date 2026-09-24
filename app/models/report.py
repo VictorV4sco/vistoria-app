@@ -5,13 +5,14 @@ from uuid import uuid4
 from app.models.complementary_information import ComplementaryInformation
 from app.models.party import Party
 from app.models.property import Property
+from app.models.section import Section
 
 
 @dataclass
 class Report:
     id: str = field(default_factory=lambda: str(uuid4()))
     version: int = 1
-    sections: list = field(default_factory=list)
+    sections: list[Section] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     report_type: str = ""
@@ -27,3 +28,14 @@ class Report:
         default_factory=ComplementaryInformation
     )
     protected_from_cleanup: bool = False
+
+    def add_section(self, section: Section) -> None:
+        self.sections.append(section)
+        self.reorder_sections()
+
+    def remove_section(self, section: Section) -> None:
+        self.sections.remove(section)
+
+    def reorder_sections(self) -> None:
+        """Sort sections by their order without changing the order values."""
+        self.sections.sort(key=lambda section: section.order)
