@@ -16,6 +16,139 @@ from app.services.report_serialization import report_to_dict
 
 
 @pytest.fixture
+def valid_backup(tmp_path: Path, report: Report) -> bytes:
+    content = json.dumps(report_to_dict(report), ensure_ascii=False).encode("utf-8")
+    (tmp_path / "projeto.backup.json").write_bytes(content)
+    return content
+
+
+@pytest.mark.parametrize("principal", [None, b'{"broken":'])
+def test_load_does_not_recover_automatically(
+    tmp_path: Path, valid_backup: bytes, principal: bytes | None
+) -> None:
+    if principal is not None:
+        (tmp_path / "projeto.json").write_bytes(principal)
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+
+    with pytest.raises(FileNotFoundError if principal is None else json.JSONDecodeError):
+        ProjectService.load(tmp_path)
+
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_valid_backup_can_be_detected_and_loaded_without_changing_files(
+    tmp_path: Path, report: Report, valid_backup: bytes
+) -> None:
+    (tmp_path / "projeto.json").write_bytes(b"broken principal")
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+
+    assert ProjectService.has_valid_backup(tmp_path) is True
+    loaded = ProjectService.load_backup(tmp_path)
+
+    assert loaded == report
+    assert isinstance(loaded.sections[0], Section)
+    assert isinstance(loaded.sections[0].photos[0], Photo)
+    assert type(loaded.inspection_date) is date
+    assert isinstance(loaded.created_at, datetime)
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+@pytest.mark.parametrize(
+    ("content", "error"),
+    [(None, FileNotFoundError), (b"{", json.JSONDecodeError),
+     (b"{}", KeyError), (b"[]", TypeError), (b"\xff", UnicodeDecodeError)],
+)
+def test_unusable_backup_is_rejected_without_changing_files(
+    tmp_path: Path, content: bytes | None, error: type[Exception]
+) -> None:
+    (tmp_path / "projeto.json").write_bytes(b"existing principal")
+    if content is not None:
+        (tmp_path / "projeto.backup.json").write_bytes(content)
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+
+    assert ProjectService.has_valid_backup(tmp_path) is False
+    with pytest.raises(error):
+        ProjectService.load_backup(tmp_path)
+    with pytest.raises(error):
+        ProjectService.restore_backup(tmp_path)
+
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+@pytest.mark.parametrize("timestamp", ["invalid date", "2026-09-24T10:20:30"])
+def test_backup_with_invalid_timestamp_is_not_usable(
+    tmp_path: Path, report: Report, timestamp: str
+) -> None:
+    data = report_to_dict(report)
+    data["created_at"] = timestamp
+    backup = tmp_path / "projeto.backup.json"
+    backup.write_text(json.dumps(data), encoding="utf-8")
+    before = backup.read_bytes()
+
+    assert ProjectService.has_valid_backup(tmp_path) is False
+    with pytest.raises(ValueError):
+        ProjectService.restore_backup(tmp_path)
+    assert backup.read_bytes() == before
+    assert not (tmp_path / "projeto.json").exists()
+
+
+@pytest.mark.parametrize("principal", [None, b"broken principal", b'{"title": "other"}'])
+def test_restore_backup_atomically_restores_report_and_preserves_backup(
+    tmp_path: Path, report: Report, valid_backup: bytes, principal: bytes | None
+) -> None:
+    if principal is not None:
+        (tmp_path / "projeto.json").write_bytes(principal)
+
+    ProjectService.restore_backup(tmp_path)
+
+    assert ProjectService.load(tmp_path) == report
+    assert (tmp_path / "projeto.backup.json").read_bytes() == valid_backup
+    assert {path.name for path in tmp_path.iterdir()} == {"projeto.json", "projeto.backup.json"}
+
+
+@pytest.mark.parametrize("stage", ["write", "replace"])
+def test_restore_failure_preserves_principal_and_valid_backup(
+    tmp_path: Path, report: Report, valid_backup: bytes,
+    monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    project = tmp_path / "projeto.json"
+    project.write_bytes(b"original principal")
+
+    def fail_dump(data: dict, file: TextIO, **kwargs: object) -> None:
+        file.write('{"partial":')
+        file.flush()
+        raise OSError("restore failed")
+
+    def fail_replace(source: Path, target: Path) -> Path:
+        assert target == project
+        assert json.loads(source.read_text(encoding="utf-8")) == report_to_dict(report)
+        raise OSError("restore failed")
+
+    if stage == "write":
+        monkeypatch.setattr(json, "dump", fail_dump)
+    else:
+        monkeypatch.setattr(Path, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="restore failed"):
+        ProjectService.restore_backup(tmp_path)
+
+    assert project.read_bytes() == b"original principal"
+    assert (tmp_path / "projeto.backup.json").read_bytes() == valid_backup
+    assert ProjectService.load_backup(tmp_path) == report
+
+
+def test_has_valid_backup_propagates_permission_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_open(path: Path, *args: object, **kwargs: object) -> TextIO:
+        raise PermissionError("access denied")
+
+    monkeypatch.setattr(Path, "open", fail_open)
+    with pytest.raises(PermissionError, match="access denied"):
+        ProjectService.has_valid_backup(tmp_path)
+
+
+@pytest.fixture
 def report() -> Report:
     return Report(
         id="report-1",

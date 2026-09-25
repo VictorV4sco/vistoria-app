@@ -40,3 +40,34 @@ class ProjectService:
         with (project_directory / "projeto.json").open(encoding="utf-8") as file:
             data = json.load(file)
         return report_from_dict(data)
+
+    @staticmethod
+    def has_valid_backup(project_directory: Path) -> bool:
+        """Check whether the backup can be reconstructed, without modifying files."""
+        try:
+            ProjectService.load_backup(project_directory)
+        except (FileNotFoundError, ValueError, KeyError, TypeError):
+            # ValueError includes JSONDecodeError and UnicodeDecodeError.
+            return False
+        return True
+
+    @staticmethod
+    def load_backup(project_directory: Path) -> Report:
+        """Read only the backup, propagating file and reconstruction errors."""
+        with (project_directory / "projeto.backup.json").open(encoding="utf-8") as file:
+            data = json.load(file)
+        return report_from_dict(data)
+
+    @staticmethod
+    def restore_backup(project_directory: Path) -> None:
+        """Validate and atomically restore the backup, leaving the backup untouched.
+
+        Errors propagate and may leave projeto.tmp; no automatic recovery or
+        cleanup is performed.
+        """
+        report = ProjectService.load_backup(project_directory)
+        data = report_to_dict(report)
+        temporary = project_directory / "projeto.tmp"
+        with temporary.open("w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
+        temporary.replace(project_directory / "projeto.json")
