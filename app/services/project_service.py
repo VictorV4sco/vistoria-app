@@ -8,15 +8,31 @@ from app.services.report_serialization import report_from_dict, report_to_dict
 
 
 class ProjectService:
-    """Persist projeto.json directly, propagating I/O and decoding errors."""
+    """Persist reports atomically, propagating I/O and decoding errors."""
 
     @staticmethod
     def save(report: Report, project_directory: Path) -> None:
-        """Create the directory and overwrite projeto.json with the report data."""
+        """Replace the project after writing it fully, keeping its previous bytes.
+
+        Promote the new project before replacing the backup. If backup promotion
+        fails, the new project and old backup remain, with the previous project
+        in projeto.backup.tmp. Errors propagate without removing temporary files.
+        """
         data = report_to_dict(report)
         project_directory.mkdir(parents=True, exist_ok=True)
-        with (project_directory / "projeto.json").open("w", encoding="utf-8") as file:
+        project = project_directory / "projeto.json"
+        temporary = project_directory / "projeto.tmp"
+        with temporary.open("w", encoding="utf-8") as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
+
+        backup_temporary = None
+        if project.exists():
+            backup_temporary = project_directory / "projeto.backup.tmp"
+            backup_temporary.write_bytes(project.read_bytes())
+
+        temporary.replace(project)
+        if backup_temporary is not None:
+            backup_temporary.replace(project_directory / "projeto.backup.json")
 
     @staticmethod
     def load(project_directory: Path) -> Report:

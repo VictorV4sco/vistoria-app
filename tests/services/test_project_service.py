@@ -1,6 +1,7 @@
 import json
 from datetime import date, datetime
 from pathlib import Path
+from typing import TextIO
 
 import pytest
 
@@ -125,6 +126,7 @@ def test_default_report_round_trip(tmp_path: Path) -> None:
 
 def test_save_again_replaces_previous_content(tmp_path: Path, report: Report) -> None:
     ProjectService.save(report, tmp_path)
+    previous = (tmp_path / "projeto.json").read_bytes()
     report.title = "Final"
     report.sections.clear()
 
@@ -134,7 +136,107 @@ def test_save_again_replaces_previous_content(tmp_path: Path, report: Report) ->
         report
     )
     assert ProjectService.load(tmp_path) == report
-    assert list(tmp_path.iterdir()) == [tmp_path / "projeto.json"]
+    assert (tmp_path / "projeto.backup.json").read_bytes() == previous
+    assert {path.name for path in tmp_path.iterdir()} == {"projeto.json", "projeto.backup.json"}
+
+
+def test_third_save_keeps_only_immediately_previous_version(tmp_path: Path, report: Report) -> None:
+    ProjectService.save(report, tmp_path)
+    report.title = "Segunda versão"
+    ProjectService.save(report, tmp_path)
+    previous = (tmp_path / "projeto.json").read_bytes()
+    report.title = "Terceira versão"
+
+    ProjectService.save(report, tmp_path)
+
+    assert ProjectService.load(tmp_path) == report
+    assert (tmp_path / "projeto.backup.json").read_bytes() == previous
+    assert {path.name for path in tmp_path.iterdir()} == {"projeto.json", "projeto.backup.json"}
+
+
+@pytest.mark.parametrize("existing_project", [False, True])
+def test_partial_write_failure_preserves_existing_files(
+    tmp_path: Path, report: Report, monkeypatch: pytest.MonkeyPatch, existing_project: bool
+) -> None:
+    project = tmp_path / "projeto.json"
+    backup = tmp_path / "projeto.backup.json"
+    previous = json.dumps(report_to_dict(report)).encode("utf-8")
+    if existing_project:
+        project.write_bytes(previous)
+        backup.write_bytes(b'{"title": "older version"}')
+
+    def fail_dump(data: dict, file: TextIO, **kwargs: object) -> None:
+        file.write('{"title": ')
+        file.flush()
+        raise OSError("write failed")
+
+    monkeypatch.setattr(json, "dump", fail_dump)
+    with pytest.raises(OSError, match="write failed"):
+        ProjectService.save(report, tmp_path)
+
+    if existing_project:
+        assert project.read_bytes() == previous
+        assert backup.read_bytes() == b'{"title": "older version"}'
+    else:
+        assert not project.exists()
+        assert not backup.exists()
+
+
+@pytest.mark.parametrize("failed_target", ["projeto.backup.json", "projeto.json"])
+def test_replace_failure_preserves_old_backup_and_expected_project_version(
+    tmp_path: Path, report: Report, monkeypatch: pytest.MonkeyPatch, failed_target: str
+) -> None:
+    project = tmp_path / "projeto.json"
+    backup = tmp_path / "projeto.backup.json"
+    previous = json.dumps(report_to_dict(report)).encode("utf-8")
+    older = b'{"title": "older version"}'
+    project.write_bytes(previous)
+    backup.write_bytes(older)
+    report.title = "Nova versão"
+    replace = Path.replace
+
+    def fail_replace(source: Path, target: Path) -> Path:
+        if target.name == failed_target:
+            raise PermissionError("replace failed")
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(PermissionError, match="replace failed"):
+        ProjectService.save(report, tmp_path)
+
+    if failed_target == "projeto.json":
+        assert project.read_bytes() == previous
+        assert json.loads((tmp_path / "projeto.tmp").read_text("utf-8")) == report_to_dict(
+            report
+        )
+    else:
+        assert ProjectService.load(tmp_path) == report
+        assert not (tmp_path / "projeto.tmp").exists()
+    assert backup.read_bytes() == older
+    assert (tmp_path / "projeto.backup.tmp").read_bytes() == previous
+
+
+def test_partial_backup_write_failure_preserves_both_versions(
+    tmp_path: Path, report: Report, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "projeto.json"
+    backup = tmp_path / "projeto.backup.json"
+    previous = json.dumps(report_to_dict(report)).encode("utf-8")
+    older = b'{"title": "older version"}'
+    project.write_bytes(previous)
+    backup.write_bytes(older)
+
+    def fail_write_bytes(path: Path, data: bytes) -> int:
+        with path.open("wb") as file:
+            file.write(data[:10])
+        raise OSError("backup write failed")
+
+    monkeypatch.setattr(Path, "write_bytes", fail_write_bytes)
+    with pytest.raises(OSError, match="backup write failed"):
+        ProjectService.save(report, tmp_path)
+
+    assert project.read_bytes() == previous
+    assert backup.read_bytes() == older
 
 
 @pytest.mark.parametrize("directory_exists", [False, True])
