@@ -36,6 +36,7 @@ class DocumentGenerator:
             "property": report.property,
             "landlord": report.landlord,
             "tenant": report.tenant,
+            "sections": report.sections,
         }
         template.render(context, autoescape=True)
         with TemporaryDirectory(prefix=".document-", dir=destination.parent) as directory:

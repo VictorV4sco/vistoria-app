@@ -10,6 +10,7 @@ from docxtpl import DocxTemplate
 from app.models.party import Party
 from app.models.property import Property
 from app.models.report import Report
+from app.models.section import Section
 from app.services.document_generator import DocumentGenerator
 
 
@@ -148,6 +149,62 @@ def test_success_replaces_existing_document(tmp_path: Path, report: Report) -> N
 
     assert report.title in "\n".join(p.text for p in Document(destination).paragraphs)
     assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize("count", [0, 1, 3])
+def test_sections_follow_list_order_with_sequential_numbers(
+    tmp_path: Path, report: Report, count: int,
+) -> None:
+    report.sections = [
+        Section(name="ÁREA & <SERVIÇO>", description="Pintura íntegra & clara",
+                notes="Atenção à ventilação", order=30),
+        Section(name="COZINHA", description="Azulejos íntegros", order=10),
+        Section(name="QUARTO — HÓSPEDES", notes="Maçaneta com folga", order=20),
+    ][:count]
+    before = deepcopy(report)
+    original_sections = list(report.sections)
+    destination = tmp_path / "report.docx"
+
+    DocumentGenerator.generate(report, tmp_path, destination)
+
+    with ZipFile(destination) as archive:
+        assert archive.testzip() is None
+    paragraphs = [p.text for p in Document(destination).paragraphs]
+    start = paragraphs.index("4. VISTORIA DOS AMBIENTES")
+    expected = []
+    for index, section in enumerate(original_sections, start=1):
+        expected.append(f"4.{index} {section.name}")
+        if section.description:
+            expected.extend(["Descrição", section.description])
+        if section.notes:
+            expected.extend(["Observações", section.notes])
+    assert paragraphs[start + 1:] == expected
+    assert report == before
+    assert all(current is original for current, original
+               in zip(report.sections, original_sections, strict=True))
+
+
+@pytest.mark.parametrize("description", ["", None, "Descrição — íntegra & <nova>"])
+@pytest.mark.parametrize("notes", ["", None, "Observação — revisão necessária"])
+def test_section_optional_text_and_labels(
+    tmp_path: Path, description: str | None, notes: str | None,
+) -> None:
+    report = Report(sections=[Section(name="Sala", description=description, notes=notes)])
+    before = deepcopy(report)
+    destination = tmp_path / "report.docx"
+
+    DocumentGenerator.generate(report, tmp_path, destination)
+
+    paragraphs = [p.text for p in Document(destination).paragraphs]
+    start = paragraphs.index("4.1 Sala")
+    expected = []
+    if description:
+        expected.extend(["Descrição", description])
+    if notes:
+        expected.extend(["Observações", notes])
+    assert paragraphs[start + 1:] == expected
+    assert "None" not in "\n".join(paragraphs)
+    assert report == before
 
 
 @pytest.mark.parametrize("existing", [False, True])
