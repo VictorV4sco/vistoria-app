@@ -3,9 +3,11 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from docxtpl import DocxTemplate
+from docx.shared import Cm
+from docxtpl import DocxTemplate, InlineImage
 
 from app.models.report import Report
+from app.services.image_service import ImageService
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "modelo_relatorio.docx"
 
@@ -17,9 +19,29 @@ class DocumentGenerator:
 
         The destination's parent directory must exist. Template and I/O errors
         propagate, preserving an existing destination and cleaning temporary files.
-        project_directory is reserved for images in a later stage.
+        Images are read from project_directory and optimized without changing originals.
         """
         template = DocxTemplate(TEMPLATE_PATH)
+        sections = []
+        photo_number = 0
+        for section in report.sections:
+            photos = []
+            for photo in section.photos:
+                optimized = ImageService.optimize_for_report(
+                    Path(photo.file_path), project_directory
+                )
+                photo_number += 1
+                photos.append({
+                    "image": InlineImage(template, str(project_directory / optimized), width=Cm(7)),
+                    "number": photo_number,
+                    "caption": photo.caption,
+                })
+            sections.append({
+                "name": section.name,
+                "description": section.description,
+                "notes": section.notes,
+                "photo_rows": [photos[index:index + 2] for index in range(0, len(photos), 2)],
+            })
         context = {
             "title": report.title,
             "report_type": report.report_type,
@@ -36,7 +58,7 @@ class DocumentGenerator:
             "property": report.property,
             "landlord": report.landlord,
             "tenant": report.tenant,
-            "sections": report.sections,
+            "sections": sections,
         }
         template.render(context, autoescape=True)
         with TemporaryDirectory(prefix=".document-", dir=destination.parent) as directory:
