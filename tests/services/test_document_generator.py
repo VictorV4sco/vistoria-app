@@ -69,6 +69,7 @@ def test_all_fields_appear_in_the_correct_document_section(tmp_path: Path, repor
     text = "\n".join(p.text for p in Document(destination).paragraphs)
     inspection, rest = text.split("DADOS DO IMÓVEL")
     property_text, parties = rest.split("PARTES ENVOLVIDAS")
+    parties = parties.split("4. VISTORIA DOS AMBIENTES")[0]
     landlord_text, tenant_text = parties.split("LOCADOR")[1].split("LOCATÁRIO")
     assert "DADOS DA VISTORIA" in inspection
     for value in (report.title, report.report_type, report.code, report.inspector_name,
@@ -178,7 +179,7 @@ def test_sections_follow_list_order_with_sequential_numbers(
             expected.extend(["Descrição", section.description])
         if section.notes:
             expected.extend(["Observações", section.notes])
-    assert paragraphs[start + 1:] == expected
+    assert paragraphs[start + 1:paragraphs.index("6. TERMOS FINAIS")] == expected
     assert report == before
     assert all(current is original for current, original
                in zip(report.sections, original_sections, strict=True))
@@ -202,7 +203,7 @@ def test_section_optional_text_and_labels(
         expected.extend(["Descrição", description])
     if notes:
         expected.extend(["Observações", notes])
-    assert paragraphs[start + 1:] == expected
+    assert paragraphs[start + 1:paragraphs.index("6. TERMOS FINAIS")] == expected
     assert "None" not in "\n".join(paragraphs)
     assert report == before
 

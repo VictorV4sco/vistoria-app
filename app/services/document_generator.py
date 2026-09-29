@@ -8,6 +8,7 @@ from docxtpl import DocxTemplate, InlineImage
 
 from app.models.report import Report
 from app.services.image_service import ImageService
+from app.utils.dates import format_date_pt_br
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "modelo_relatorio.docx"
 
@@ -59,6 +60,8 @@ class DocumentGenerator:
             "landlord": report.landlord,
             "tenant": report.tenant,
             "sections": sections,
+            "complementary_information": report.complementary_information,
+            "issue_date_long": format_date_pt_br(report.issue_date),
         }
         template.render(context, autoescape=True)
         with TemporaryDirectory(prefix=".document-", dir=destination.parent) as directory:
