@@ -160,3 +160,18 @@ def test_report_rejects_invalid_type_on_creation_and_assignment(invalid: object)
     with pytest.raises(ValueError, match="report_type.*Inicial.*Final"):
         report.report_type = invalid
     assert report.report_type == "Final"
+
+
+@pytest.mark.parametrize("index, offset, expected", [
+    (1, -1, [1, 0, 2]), (1, 1, [0, 2, 1]),
+    (0, -1, [0, 1, 2]), (2, 1, [0, 1, 2]),
+])
+def test_move_section_preserves_identity_and_normalizes_order(index, offset, expected):
+    sections = [Section(name=str(i), order=i * 10) for i in range(3)]
+    report = Report(sections=sections.copy())
+    report.move_section(sections[index], offset)
+    assert all(actual is sections[i] for actual, i in zip(report.sections, expected, strict=True))
+    if 0 <= index + offset < 3:
+        assert [section.order for section in report.sections] == [0, 1, 2]
+    else:
+        assert [section.order for section in report.sections] == [0, 10, 20]

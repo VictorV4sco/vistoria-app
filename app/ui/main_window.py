@@ -6,6 +6,7 @@ from app.models.report import Report
 from app.ui.environments_page import EnvironmentsPage
 from app.ui.inspection_form_page import InspectionFormPage
 from app.ui.parties_page import PartiesPage
+from app.ui.review_page import ReviewPage
 from app.ui.start_page import StartPage
 
 
@@ -21,18 +22,22 @@ class MainWindow(QMainWindow):
         self.form_page = InspectionFormPage()
         self.parties_page = PartiesPage()
         self.environments_page = EnvironmentsPage()
+        self.review_page = ReviewPage()
         for page in (
             self.start_page, self.form_page, self.parties_page, self.environments_page,
+            self.review_page,
         ):
             self.pages.addWidget(page)
         self.start_page.continue_requested.connect(self._start_inspection)
         self.form_page.back_requested.connect(self._show_start)
         self.form_page.continue_requested.connect(self._show_parties)
         self.parties_page.back_requested.connect(self._show_form)
-        self.parties_page.continue_requested.connect(
-            lambda: self.pages.setCurrentWidget(self.environments_page)
-        )
+        self.parties_page.continue_requested.connect(self._show_environments)
         self.environments_page.back_requested.connect(self._show_parties)
+        self.environments_page.continue_requested.connect(
+            lambda: self.pages.setCurrentWidget(self.review_page)
+        )
+        self.review_page.back_requested.connect(self._show_environments)
 
     @property
     def initial_radio(self):
@@ -55,7 +60,13 @@ class MainWindow(QMainWindow):
         self.report = Report(report_type=report_type)
         self.form_page.set_report(self.report)
         self.parties_page.set_report(self.report)
+        self.environments_page.set_report(self.report)
         self._show_form()
+
+    def _show_environments(self) -> None:
+        if self.report is not None:
+            self.environments_page.set_report(self.report)
+        self.pages.setCurrentWidget(self.environments_page)
 
     def _show_parties(self) -> None:
         if self.report is not None:

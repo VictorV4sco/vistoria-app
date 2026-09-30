@@ -52,3 +52,13 @@ class Report:
     def reorder_sections(self) -> None:
         """Sort sections by their order without changing the order values."""
         self.sections.sort(key=lambda section: section.order)
+
+    def move_section(self, section: Section, offset: int) -> None:
+        """Move an existing section and assign consecutive order values."""
+        index = next(i for i, current in enumerate(self.sections) if current is section)
+        destination = index + offset
+        if not 0 <= destination < len(self.sections):
+            return
+        self.sections.insert(destination, self.sections.pop(index))
+        for order, current in enumerate(self.sections):
+            current.order = order

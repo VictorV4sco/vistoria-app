@@ -142,3 +142,32 @@ def test_new_inspection_rebinds_parties_without_changing_previous_report(window,
     window.parties_page.landlord_name_field.setText("Carla")
     assert window.report.landlord.name == "Carla"
     assert previous.landlord.name == "Ana"
+
+
+def test_environments_navigation_preserves_sections_and_opens_review(window):
+    window.continue_button.click()
+    window.form_page.continue_button.click()
+    window.parties_page.continue_button.click()
+    page = window.environments_page
+    report = window.report
+    assert page.report is report
+    page.add_button.click()
+    section = report.sections[0]
+    page.editors[0].name_field.setText("Sala")
+    page.editors[0].description_field.setPlainText("Descrição")
+    page.editors[0].notes_field.setPlainText("Notas")
+    page.back_button.click()
+    assert window.pages.currentWidget() is window.parties_page
+    window.parties_page.continue_button.click()
+    assert report.sections[0] is section
+    assert len(page.editors) == 1
+    page.continue_button.click()
+    assert window.pages.currentWidget() is window.review_page
+    assert window.review_page.title.text() == "Revisão da vistoria"
+    window.review_page.back_button.click()
+    assert window.pages.currentWidget() is page
+    assert window.report is report
+    assert report.sections[0] is section
+    assert page.editors[0].name_field.text() == "Sala"
+    assert page.editors[0].description_field.toPlainText() == "Descrição"
+    assert page.editors[0].notes_field.toPlainText() == "Notas"
