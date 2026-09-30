@@ -37,9 +37,7 @@ class MainWindow(QMainWindow):
         self.parties_page.back_requested.connect(self._show_form)
         self.parties_page.continue_requested.connect(self._show_environments)
         self.environments_page.back_requested.connect(self._show_parties)
-        self.environments_page.continue_requested.connect(
-            lambda: self.pages.setCurrentWidget(self.review_page)
-        )
+        self.environments_page.continue_requested.connect(self._show_review)
         self.review_page.back_requested.connect(self._show_environments)
         self.environments_page.directory_requested.connect(self._choose_project_directory)
 
@@ -65,7 +63,13 @@ class MainWindow(QMainWindow):
         self.form_page.set_report(self.report)
         self.parties_page.set_report(self.report)
         self.environments_page.set_report(self.report, self.project_directory)
+        self.review_page.set_report(self.report, self.project_directory)
         self._show_form()
+
+    def _show_review(self) -> None:
+        if self.report is not None:
+            self.review_page.set_report(self.report, self.project_directory)
+        self.pages.setCurrentWidget(self.review_page)
 
     def _show_environments(self) -> None:
         if self.report is not None:
