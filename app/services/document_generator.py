@@ -5,10 +5,12 @@ from tempfile import TemporaryDirectory
 
 from docx.shared import Cm
 from docxtpl import DocxTemplate, InlineImage
+from PIL import Image
 
 from app.models.report import Report
 from app.services.image_service import ImageService
 from app.utils.dates import format_date_pt_br
+from app.utils.image_dimensions import fit_photo_dimensions
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "modelo_relatorio.docx"
 
@@ -32,8 +34,13 @@ class DocumentGenerator:
                     Path(photo.file_path), project_directory
                 )
                 photo_number += 1
+                image_path = project_directory / optimized
+                with Image.open(image_path) as image:
+                    width, height = fit_photo_dimensions(*image.size)
                 photos.append({
-                    "image": InlineImage(template, str(project_directory / optimized), width=Cm(7)),
+                    "image": InlineImage(
+                        template, str(image_path), width=Cm(width), height=Cm(height)
+                    ),
                     "number": photo_number,
                     "caption": photo.caption,
                 })
@@ -46,6 +53,7 @@ class DocumentGenerator:
         context = {
             "title": report.title,
             "report_type": report.report_type,
+            "is_initial_inspection": report.report_type == "Inicial",
             "code": report.code,
             "inspection_date": (
                 report.inspection_date.strftime("%d/%m/%Y")

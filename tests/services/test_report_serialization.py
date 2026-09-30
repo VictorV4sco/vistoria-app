@@ -286,3 +286,22 @@ def test_version_is_preserved_at_top_level(version: int) -> None:
 
     assert data["version"] == version
     assert report_from_dict(data).version == version
+
+
+@pytest.mark.parametrize("report_type", ["Inicial", "Final"])
+def test_both_report_types_preserve_serialized_format(project_data: dict, report_type: str) -> None:
+    project_data["report_type"] = report_type
+    before = deepcopy(project_data)
+    report = report_from_dict(project_data)
+    assert report_to_dict(report) == before
+    assert project_data == before
+    assert type(report_to_dict(report)["report_type"]) is str
+
+
+@pytest.mark.parametrize("invalid", ["Periódica", "Outra", "", "Livre"])
+def test_deserialization_rejects_unsupported_report_type(project_data: dict, invalid: str) -> None:
+    project_data["report_type"] = invalid
+    before = deepcopy(project_data)
+    with pytest.raises(ValueError, match="report_type"):
+        report_from_dict(project_data)
+    assert project_data == before

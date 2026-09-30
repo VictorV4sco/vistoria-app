@@ -5,7 +5,9 @@ from zipfile import ZipFile
 
 import pytest
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+from docx.shared import Cm
 from PIL import Image
 
 from app.models.photo import Photo
@@ -54,8 +56,9 @@ def test_photo_tables_content_order_optimization_and_proportions(
     DocumentGenerator.generate(report, project, destination)
 
     document = Document(destination)
-    assert len(document.inline_shapes) == number
-    assert len(document.tables) == sum(count > 0 for count in counts)
+    assert len(document.inline_shapes) == number + 1
+    photo_tables = [table for table in document.tables if table._tbl.xpath(".//w:drawing")]
+    assert len(photo_tables) == sum(count > 0 for count in counts)
     assert [p.text for p in document.paragraphs].count("Registro fotográfico") == sum(
         count > 0 for count in counts
     )
@@ -63,8 +66,8 @@ def test_photo_tables_content_order_optimization_and_proportions(
         (relative, project) for relative, _ in expected
     ]
     photo_index = 0
-    widths = []
-    for table, count in zip(document.tables, (c for c in counts if c), strict=True):
+
+    for table, count in zip(photo_tables, (c for c in counts if c), strict=True):
         assert len(table.columns) == 2
         assert len(table.rows) == (count + 1) // 2
         borders = table._tbl.xpath("./w:tblPr/w:tblBorders/*")
@@ -87,13 +90,15 @@ def test_photo_tables_content_order_optimization_and_proportions(
                 extent = cell._tc.xpath(".//wp:extent")[0]
                 width, height = int(extent.get("cx")), int(extent.get("cy"))
                 assert width / height == pytest.approx(image.width / image.height, rel=1e-5)
-                widths.append(width)
+                assert width <= Cm(7)
+                assert height <= Cm(6.5)
+                assert paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.CENTER
+                assert paragraphs[1].alignment == WD_ALIGN_PARAGRAPH.CENTER
             photo_index += 1
-    assert len(set(widths)) <= 1
     with ZipFile(destination) as archive:
         assert archive.testzip() is None
         media = [name for name in archive.namelist() if name.startswith("word/media/")]
-        assert len(media) == number
+        assert len(media) == number + 1
     assert report == before
     assert all((project / path).read_bytes() == content for path, content in source_bytes.items())
     # Tables stay within their respective section, including sections without photos.
@@ -103,7 +108,7 @@ def test_photo_tables_content_order_optimization_and_proportions(
             text = "".join(child.itertext())
             if "Ambiente" in text:
                 blocks.append("section")
-        elif child.tag == qn("w:tbl"):
+        elif child.tag == qn("w:tbl") and child.xpath(".//w:drawing"):
             blocks.append("photos")
     assert blocks == [block for count in counts for block in
                       (["section", "photos"] if count else ["section"])]

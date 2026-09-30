@@ -82,12 +82,20 @@ def test_closing_date_and_signatures(
         assert expected in closing
     else:
         assert not any("de 2026" in p for p in closing)
-    signatures = closing[closing.index("7. ASSINATURAS") + 1:]
-    assert signatures == [
-        "LOCADOR", "____________________________________", report.landlord.name,
-        "LOCATÁRIO", "____________________________________", report.tenant.name,
-    ]
-    assert report.inspector_name not in "\n".join(signatures)
+    document = Document(destination)
+    assert "7. ASSINATURAS" in closing
+    assert len(document.tables) == 1
+    signatures = document.tables[0]
+    assert len(signatures.rows) == 1 and len(signatures.columns) == 2
+    for cell, title, name in zip(signatures.rows[0].cells,
+                                 ("LOCADOR", "LOCATÁRIO"),
+                                 (report.landlord.name, report.tenant.name), strict=True):
+        assert [p.text for p in cell.paragraphs] == [
+            title, "____________________________________", name,
+        ]
+        assert cell.paragraphs[1].paragraph_format.space_before.pt >= 24
+        assert report.inspector_name not in cell.text
+    assert "".join(signatures._tbl.getprevious().xpath(".//w:t/text()")) == "7. ASSINATURAS"
     assert "None" not in "\n".join(closing)
     assert report == before
 
@@ -110,3 +118,39 @@ def test_terms_are_editable_in_template(tmp_path: Path, monkeypatch: pytest.Monk
     DocumentGenerator.generate(Report(), tmp_path, destination)
 
     assert replacement in [p.text for p in Document(destination).paragraphs]
+
+
+@pytest.mark.parametrize("report_type", ["Inicial", "Final"])
+@pytest.mark.parametrize("consumer_unit", ["UC-123", ""])
+def test_report_type_controls_cover_and_energy_meter(
+    tmp_path: Path, report_type: str, consumer_unit: str,
+) -> None:
+    report = Report(
+        report_type=report_type,
+        complementary_information=ComplementaryInformation(
+            energy_meter="MEDIDOR-TESTE-42", consumer_unit=consumer_unit,
+        ),
+    )
+    before = deepcopy(report)
+    destination = tmp_path / "report.docx"
+
+    DocumentGenerator.generate(report, tmp_path, destination)
+
+    with ZipFile(destination) as archive:
+        assert archive.testzip() is None
+    text = "\n".join(p.text for p in Document(destination).paragraphs)
+    cover = text.split("DADOS DA VISTORIA")[0]
+    assert f"VISTORIA {report_type.upper()}" in cover
+    if report_type == "Inicial":
+        assert "CONDIÇÕES DA VISTORIA INICIAL" in text
+        assert "Medidor de energia: MEDIDOR-TESTE-42" in text
+    else:
+        assert "CONDIÇÕES DA VISTORIA INICIAL" not in text
+        assert "Medidor de energia" not in text
+        assert "MEDIDOR-TESTE-42" not in text
+        if not consumer_unit:
+            assert "5. INFORMAÇÕES COMPLEMENTARES" not in text
+    if consumer_unit:
+        assert "Unidade consumidora: UC-123" in text
+    assert report == before
+    assert report.complementary_information.energy_meter == "MEDIDOR-TESTE-42"

@@ -16,7 +16,7 @@ def test_create_report_with_default_values() -> None:
     assert report.sections == []
     assert report.created_at is not None
     assert report.updated_at is not None
-    assert report.report_type == ""
+    assert report.report_type == "Inicial"
     assert report.title == ""
     assert report.code == ""
     assert report.inspection_date is None
@@ -140,3 +140,23 @@ def test_reports_do_not_share_sections() -> None:
     assert report.sections == [section]
     assert other.sections == []
     assert report.sections is not other.sections
+
+
+@pytest.mark.parametrize("report_type", ["Inicial", "Final"])
+def test_report_accepts_only_supported_types(report_type: str) -> None:
+    report = Report(report_type=report_type)
+    assert report.report_type == report_type
+    report.report_type = "Final" if report_type == "Inicial" else "Inicial"
+    assert report.report_type != report_type
+
+
+@pytest.mark.parametrize(
+    "invalid", ["Periódica", "Outra", "", "inicial", "Final ", "Livre", None, 1],
+)
+def test_report_rejects_invalid_type_on_creation_and_assignment(invalid: object) -> None:
+    with pytest.raises(ValueError, match="report_type.*Inicial.*Final"):
+        Report(report_type=invalid)
+    report = Report(report_type="Final")
+    with pytest.raises(ValueError, match="report_type.*Inicial.*Final"):
+        report.report_type = invalid
+    assert report.report_type == "Final"

@@ -18,7 +18,7 @@ from app.services.document_generator import DocumentGenerator
 def report() -> Report:
     return Report(
         title="Vistoria — São Gonçalo & <Anexo>",
-        report_type="Periódica",
+        report_type="Final",
         inspection_date=date(2026, 9, 4),
         inspector_name="João da Conceição",
         code="REF-ação-42",
@@ -123,7 +123,10 @@ def test_empty_report_has_no_empty_labels_or_none(tmp_path: Path) -> None:
     DocumentGenerator.generate(Report(), tmp_path, destination)
 
     text = "\n".join(p.text for p in Document(destination).paragraphs)
-    assert ":" not in text
+    # Institutional contact labels on the cover are not optional report fields.
+    assert ":" not in text.split("DADOS DA VISTORIA", 1)[1].replace(
+        "Tipo da vistoria: Inicial", ""
+    )
     assert "None" not in text
     assert "{{" not in text
 
@@ -190,7 +193,9 @@ def test_sections_follow_list_order_with_sequential_numbers(
 def test_section_optional_text_and_labels(
     tmp_path: Path, description: str | None, notes: str | None,
 ) -> None:
-    report = Report(sections=[Section(name="Sala", description=description, notes=notes)])
+    report = Report(
+        report_type="Final", sections=[Section(name="Sala", description=description, notes=notes)]
+    )
     before = deepcopy(report)
     destination = tmp_path / "report.docx"
 

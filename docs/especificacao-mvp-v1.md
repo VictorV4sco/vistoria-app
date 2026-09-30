@@ -171,13 +171,31 @@ Campos:
 - Tipo da vistoria
   - Inicial
   - Final
-  - Periódica
-  - Outra
 - Título do relatório
 - Código / referência
 - Data da vistoria
 - Data de emissão
 - Responsável pela vistoria
+
+O tipo aceita exclusivamente as strings `Inicial` e `Final`, inclusive na
+desserialização e na edição do modelo. `Report()` usa `Inicial` como padrão;
+valores vazios ou diferentes são rejeitados, sem conversão automática de projetos antigos.
+O formato JSON permanece com o campo textual `report_type`.
+
+Na futura interface, a criação terá uma seleção exclusiva, preferencialmente
+radio buttons, sem campo de texto livre:
+
+```text
+Tipo da vistoria:
+( ) Vistoria Inicial
+( ) Vistoria Final
+```
+
+No Word, a capa exibe `VISTORIA INICIAL` ou `VISTORIA FINAL`. O bloco
+`CONDIÇÕES DA VISTORIA INICIAL` aparece somente para `Inicial`, com texto mantido
+no template. O medidor de energia preenchido também aparece somente na vistoria
+Inicial; na Final ele permanece armazenado no projeto, mas é omitido no Word.
+A unidade consumidora preenchida pode aparecer em ambos os tipos.
 
 O responsável pela vistoria terá apenas:
 

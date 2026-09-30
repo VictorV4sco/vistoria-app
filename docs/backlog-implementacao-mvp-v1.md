@@ -443,6 +443,10 @@ Adicionar:
 - validação visual;
 - integração com autosave.
 
+Na criação da vistoria, usar radio buttons ou outro controle de seleção exclusiva
+para `Vistoria Inicial` e `Vistoria Final`, associados aos valores `Inicial` e
+`Final` do domínio. Não permitir digitação livre nem outros tipos.
+
 ## Critério de aceite
 
 Todos os dados gerais previstos na especificação devem ser editáveis e persistidos.

@@ -15,7 +15,7 @@ class Report:
     sections: list[Section] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    report_type: str = ""
+    report_type: str = "Inicial"
     title: str = ""
     code: str = ""
     inspection_date: date | None = None
@@ -28,6 +28,11 @@ class Report:
         default_factory=ComplementaryInformation
     )
     protected_from_cleanup: bool = False
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "report_type" and value not in ("Inicial", "Final"):
+            raise ValueError('report_type deve ser "Inicial" ou "Final"')
+        super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
         """Store aware timestamps in UTC; a missing timezone cannot be inferred."""
