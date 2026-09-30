@@ -47,6 +47,19 @@ Execute a aplicação:
 python -m app.main
 ```
 
+A janela inicial permite escolher Vistoria Inicial (padrão) ou Vistoria Final.
+O botão **Continuar** cria um novo relatório em memória e abre uma tela provisória
+com o tipo escolhido; **Voltar** retorna à seleção. Os formulários e o salvamento
+ainda não estão conectados à interface.
+
+Os testes de interface usam `pytest-qt`. No Docker, o Qt roda com
+`QT_QPA_PLATFORM=offscreen`, sem precisar de um servidor gráfico. Para testar
+localmente em um ambiente sem tela:
+
+```bash
+QT_QPA_PLATFORM=offscreen pytest
+```
+
 ## Princípio de desenvolvimento
 
 Para novas regras de negócio:

@@ -1,14 +1,19 @@
 """Application entry point."""
 
-from app import __version__
+import sys
+
+from PySide6.QtWidgets import QApplication
+
+from app.ui.main_window import MainWindow
 
 
 def main() -> None:
-    """Start the application.
-
-    The graphical interface will be introduced in a later epic.
-    """
-    print(f"VistoriaApp {__version__}")
+    """Show the main window and run the Qt event loop."""
+    application = QApplication.instance() or QApplication(sys.argv)
+    application.setApplicationName("VistoriaApp")
+    window = MainWindow()
+    window.show()
+    application.exec()
 
 
 if __name__ == "__main__":

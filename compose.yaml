@@ -6,6 +6,8 @@ services:
     volumes:
       - .:/app
     command: pytest
+    environment:
+      QT_QPA_PLATFORM: offscreen
 
   lint:
     build:
