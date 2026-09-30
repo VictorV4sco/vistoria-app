@@ -95,3 +95,17 @@ def test_empty_report_and_rebinding(page, report):
     assert new_report.title == "Nova vistoria"
     assert report.title == "Rua das Flores"
     assert report.property.property_type == "Apartamento"
+
+
+def test_property_type_options_include_loja_in_requested_order(page):
+    combo = page.property_type_field
+    assert [combo.itemText(i) for i in range(combo.count())] == [
+        "", "Casa", "Sobrado", "Apartamento", "Loja", "Sala comercial", "Terreno", "Outro",
+    ]
+
+
+def test_property_type_loads_legacy_value(page, report):
+    report.property.property_type = "Galpão"
+    page.set_report(report)
+    assert page.property_type_field.currentText() == "Galpão"
+    assert report.property.property_type == "Galpão"

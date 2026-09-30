@@ -71,7 +71,7 @@ class InspectionFormPage(QWidget):
         property_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.property_type_field = QComboBox()
         self.property_type_field.addItems([
-            "", "Casa", "Apartamento", "Sala comercial", "Terreno", "Outro",
+            "", "Casa", "Sobrado", "Apartamento", "Loja", "Sala comercial", "Terreno", "Outro",
         ])
         self.property_type_field.currentTextChanged.connect(
             lambda value: self._update("property_type", value, property_field=True)
