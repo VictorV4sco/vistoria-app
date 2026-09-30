@@ -23,3 +23,13 @@ class Section:
     def reorder_photos(self) -> None:
         """Sort photos by their order without changing the order values."""
         self.photos.sort(key=lambda photo: photo.order)
+
+    def move_photo(self, photo: Photo, offset: int) -> None:
+        """Move an existing photo while preserving identity and consecutive order."""
+        index = next(i for i, current in enumerate(self.photos) if current is photo)
+        destination = index + offset
+        if not 0 <= destination < len(self.photos):
+            return
+        self.photos.insert(destination, self.photos.pop(index))
+        for order, current in enumerate(self.photos):
+            current.order = order

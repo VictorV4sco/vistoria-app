@@ -1,5 +1,7 @@
 """Reusable editor bound to one existing Section."""
 
+from pathlib import Path
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -12,15 +14,17 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.section import Section
+from app.ui.section_photos_widget import SectionPhotosWidget
 
 
 class EnvironmentEditorWidget(QGroupBox):
     remove_requested = Signal()
     move_requested = Signal(int)
 
-    def __init__(self, section: Section) -> None:
+    def __init__(self, section: Section, project_directory: Path | None = None) -> None:
         super().__init__("Ambiente")
         self.section = section
+        self.project_directory = project_directory
         layout = QVBoxLayout(self)
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -48,3 +52,14 @@ class EnvironmentEditorWidget(QGroupBox):
         for button in (self.up_button, self.down_button, self.remove_button):
             buttons.addWidget(button)
         layout.addLayout(buttons)
+        self.photos_widget = SectionPhotosWidget(section, project_directory)
+        self.add_photo_button = self.photos_widget.add_button
+        self.photos_empty_label = self.photos_widget.empty_label
+        layout.addWidget(self.photos_widget)
+
+    @property
+    def photo_editors(self):
+        return self.photos_widget.editors
+
+    def refresh_photos(self) -> None:
+        self.photos_widget.refresh()

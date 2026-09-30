@@ -69,3 +69,19 @@ def test_reorder_photos_with_empty_list() -> None:
     section.reorder_photos()
 
     assert section.photos == []
+
+
+def test_move_photo_normalizes_order_and_preserves_objects():
+    photos = [Photo(file_path=str(i), order=i * 10) for i in range(3)]
+    section = Section("Sala", photos=photos.copy())
+    section.move_photo(photos[1], -1)
+    assert all(
+        a is b for a, b in zip(section.photos, [photos[1], photos[0], photos[2]], strict=True)
+    )
+    assert [p.order for p in section.photos] == [0, 1, 2]
+    section.move_photo(photos[1], -1)
+    assert section.photos[0] is photos[1]
+    section.move_photo(photos[1], 1)
+    assert all(a is b for a, b in zip(section.photos, photos, strict=True))
+    section.move_photo(photos[2], 1)
+    assert section.photos[-1] is photos[2]

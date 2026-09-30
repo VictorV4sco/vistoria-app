@@ -1,6 +1,8 @@
 """Coordinate pages and the inspection held in memory."""
 
-from PySide6.QtWidgets import QMainWindow, QStackedWidget
+from pathlib import Path
+
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QStackedWidget
 
 from app.models.report import Report
 from app.ui.environments_page import EnvironmentsPage
@@ -11,8 +13,9 @@ from app.ui.start_page import StartPage
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, project_directory: Path | None = None) -> None:
         super().__init__()
+        self.project_directory = project_directory
         self.setWindowTitle("VistoriaApp")
         self.resize(640, 700)
         self.report: Report | None = None
@@ -38,6 +41,7 @@ class MainWindow(QMainWindow):
             lambda: self.pages.setCurrentWidget(self.review_page)
         )
         self.review_page.back_requested.connect(self._show_environments)
+        self.environments_page.directory_requested.connect(self._choose_project_directory)
 
     @property
     def initial_radio(self):
@@ -60,13 +64,19 @@ class MainWindow(QMainWindow):
         self.report = Report(report_type=report_type)
         self.form_page.set_report(self.report)
         self.parties_page.set_report(self.report)
-        self.environments_page.set_report(self.report)
+        self.environments_page.set_report(self.report, self.project_directory)
         self._show_form()
 
     def _show_environments(self) -> None:
         if self.report is not None:
-            self.environments_page.set_report(self.report)
+            self.environments_page.set_report(self.report, self.project_directory)
         self.pages.setCurrentWidget(self.environments_page)
+
+    def _choose_project_directory(self) -> None:
+        directory = QFileDialog.getExistingDirectory(self, "Selecionar pasta do projeto")
+        if directory:
+            self.project_directory = Path(directory)
+            self._show_environments()
 
     def _show_parties(self) -> None:
         if self.report is not None:
