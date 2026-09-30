@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -e ".[dev]"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libfontconfig1 libxkbcommon0 \
+        libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0 \
+        libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY tests ./tests

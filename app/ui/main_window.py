@@ -1,80 +1,71 @@
-"""Initial desktop flow for starting an inspection in memory."""
+"""Coordinate pages and the inspection held in memory."""
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QButtonGroup,
-    QGroupBox,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QRadioButton,
-    QStackedWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QMainWindow, QStackedWidget
 
 from app.models.report import Report
+from app.ui.environments_page import EnvironmentsPage
+from app.ui.inspection_form_page import InspectionFormPage
+from app.ui.parties_page import PartiesPage
+from app.ui.start_page import StartPage
 
 
 class MainWindow(QMainWindow):
-    """Choose an inspection type and open its temporary next page."""
-
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("VistoriaApp")
-        self.resize(560, 360)
+        self.resize(640, 700)
         self.report: Report | None = None
-
         self.pages = QStackedWidget()
         self.setCentralWidget(self.pages)
-        self.start_page = QWidget()
-        self.placeholder_page = QWidget()
-        self.pages.addWidget(self.start_page)
-        self.pages.addWidget(self.placeholder_page)
+        self.start_page = StartPage()
+        self.form_page = InspectionFormPage()
+        self.parties_page = PartiesPage()
+        self.environments_page = EnvironmentsPage()
+        for page in (
+            self.start_page, self.form_page, self.parties_page, self.environments_page,
+        ):
+            self.pages.addWidget(page)
+        self.start_page.continue_requested.connect(self._start_inspection)
+        self.form_page.back_requested.connect(self._show_start)
+        self.form_page.continue_requested.connect(self._show_parties)
+        self.parties_page.back_requested.connect(self._show_form)
+        self.parties_page.continue_requested.connect(
+            lambda: self.pages.setCurrentWidget(self.environments_page)
+        )
+        self.environments_page.back_requested.connect(self._show_parties)
 
-        start_layout = QVBoxLayout(self.start_page)
-        start_layout.setContentsMargins(32, 32, 32, 32)
-        start_layout.setSpacing(16)
-        title = QLabel("VistoriaApp")
-        title_font = title.font()
-        title_font.setPointSize(22)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        start_layout.addWidget(title)
-        start_layout.addWidget(QLabel("Nova vistoria"))
+    @property
+    def initial_radio(self):
+        return self.start_page.initial_radio
 
-        type_box = QGroupBox("Tipo da vistoria:")
-        type_layout = QVBoxLayout(type_box)
-        self.initial_radio = QRadioButton("Vistoria Inicial")
-        self.final_radio = QRadioButton("Vistoria Final")
-        self.type_group = QButtonGroup(self)
-        self.type_group.setExclusive(True)
-        for radio in (self.initial_radio, self.final_radio):
-            self.type_group.addButton(radio)
-            type_layout.addWidget(radio, alignment=Qt.AlignmentFlag.AlignLeft)
-        self.initial_radio.setChecked(True)
-        start_layout.addWidget(type_box)
-        start_layout.addStretch()
-        self.continue_button = QPushButton("Continuar")
-        self.continue_button.clicked.connect(self._start_inspection)
-        start_layout.addWidget(self.continue_button, alignment=Qt.AlignmentFlag.AlignRight)
+    @property
+    def final_radio(self):
+        return self.start_page.final_radio
 
-        placeholder_layout = QVBoxLayout(self.placeholder_page)
-        placeholder_layout.setContentsMargins(32, 32, 32, 32)
-        self.placeholder_title = QLabel()
-        self.placeholder_title.setWordWrap(True)
-        placeholder_layout.addWidget(self.placeholder_title)
-        placeholder_layout.addStretch()
-        self.back_button = QPushButton("Voltar")
-        self.back_button.clicked.connect(self._show_start)
-        placeholder_layout.addWidget(self.back_button, alignment=Qt.AlignmentFlag.AlignLeft)
+    @property
+    def continue_button(self):
+        return self.start_page.continue_button
+
+    @property
+    def back_button(self):
+        return self.form_page.back_button
 
     def _start_inspection(self) -> None:
         report_type = "Inicial" if self.initial_radio.isChecked() else "Final"
         self.report = Report(report_type=report_type)
-        self.placeholder_title.setText(f"Nova Vistoria {self.report.report_type}")
-        self.pages.setCurrentWidget(self.placeholder_page)
-        self.back_button.setFocus()
+        self.form_page.set_report(self.report)
+        self.parties_page.set_report(self.report)
+        self._show_form()
+
+    def _show_parties(self) -> None:
+        if self.report is not None:
+            self.parties_page.set_report(self.report)
+        self.pages.setCurrentWidget(self.parties_page)
+        self.parties_page.landlord_name_field.setFocus()
+
+    def _show_form(self) -> None:
+        self.pages.setCurrentWidget(self.form_page)
+        self.form_page.title_field.setFocus()
 
     def _show_start(self) -> None:
         self.pages.setCurrentWidget(self.start_page)
