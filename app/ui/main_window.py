@@ -67,6 +67,10 @@ class MainWindow(QMainWindow):
         self.save_action.setEnabled(False)
         self.save_action.triggered.connect(self._save_project)
         file_menu.addAction(self.save_action)
+        self.recover_backup_action = QAction("Recuperar backup", self)
+        self.recover_backup_action.setEnabled(False)
+        self.recover_backup_action.triggered.connect(self._recover_backup)
+        file_menu.addAction(self.recover_backup_action)
 
     @property
     def initial_radio(self):
@@ -142,8 +146,50 @@ class MainWindow(QMainWindow):
         self.environments_page.set_report(report, directory)
         self.review_page.set_report(report, directory)
         self.save_action.setEnabled(True)
+        self.recover_backup_action.setEnabled(True)
         self.statusBar().showMessage(f"Projeto: {directory}")
         self._show_form()
+
+    def _recover_backup(self) -> None:
+        if self.report is None or self.project_directory is None:
+            return
+        directory = self.project_directory
+        timer_active = self.autosave_timer.isActive()
+        self.autosave_timer.stop()
+        try:
+            if not ProjectService.has_valid_backup(directory):
+                QMessageBox.information(
+                    self, "Backup indisponível",
+                    "Não há backup válido disponível para esta vistoria.",
+                )
+                return
+            if not self._confirm_pending_changes():
+                return
+            # Saving pending changes can rotate the backup; preview the current one.
+            backup = ProjectService.load_backup(directory)
+            choice = QMessageBox.question(
+                self, "Recuperar backup",
+                f"Restaurar o backup da vistoria {backup.title or backup.report_type}?\n"
+                "O conteúdo salvo no backup substituirá o arquivo principal do projeto. "
+                "Alterações atuais ainda não salvas podem ser perdidas.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if choice != QMessageBox.StandardButton.Yes:
+                return
+            ProjectService.restore_backup(directory)
+        except Exception:
+            QMessageBox.warning(
+                self, "Não foi possível recuperar o backup",
+                "Não foi possível recuperar o backup. Verifique se os arquivos do projeto "
+                "estão disponíveis e válidos e se você tem permissão para gravar na pasta.",
+            )
+            return
+        finally:
+            if timer_active:
+                self.autosave_timer.start()
+        self._set_project(backup, directory)
+        self.statusBar().showMessage("Backup restaurado com sucesso")
 
     def _mark_dirty(self) -> None:
         if self.report is not None and self.project_directory is not None:
