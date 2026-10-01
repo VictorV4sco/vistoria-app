@@ -18,6 +18,8 @@ from app.ui.section_photos_widget import SectionPhotosWidget
 
 
 class EnvironmentEditorWidget(QGroupBox):
+    changed = Signal()
+
     remove_requested = Signal()
     move_requested = Signal(int)
 
@@ -29,7 +31,7 @@ class EnvironmentEditorWidget(QGroupBox):
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.name_field = QLineEdit(section.name)
-        self.name_field.textChanged.connect(lambda value: setattr(section, "name", value))
+        self.name_field.textChanged.connect(lambda value: self._update("name", value))
         form.addRow("Nome", self.name_field)
         for name, label in (("description", "Descrição"), ("notes", "Observações")):
             field = QTextEdit()
@@ -37,7 +39,7 @@ class EnvironmentEditorWidget(QGroupBox):
             field.setMaximumHeight(90)
             field.setPlainText(getattr(section, name))
             field.textChanged.connect(
-                lambda name=name, field=field: setattr(section, name, field.toPlainText())
+                lambda name=name, field=field: self._update(name, field.toPlainText())
             )
             setattr(self, f"{name}_field", field)
             form.addRow(label, field)
@@ -53,6 +55,7 @@ class EnvironmentEditorWidget(QGroupBox):
             buttons.addWidget(button)
         layout.addLayout(buttons)
         self.photos_widget = SectionPhotosWidget(section, project_directory)
+        self.photos_widget.changed.connect(self.changed.emit)
         self.add_photo_button = self.photos_widget.add_button
         self.photos_empty_label = self.photos_widget.empty_label
         layout.addWidget(self.photos_widget)
@@ -63,3 +66,8 @@ class EnvironmentEditorWidget(QGroupBox):
 
     def refresh_photos(self) -> None:
         self.photos_widget.refresh()
+
+    def _update(self, name: str, value: str) -> None:
+        if getattr(self.section, name) != value:
+            setattr(self.section, name, value)
+            self.changed.emit()

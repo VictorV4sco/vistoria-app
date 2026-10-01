@@ -19,6 +19,8 @@ from app.models.report import Report
 
 
 class InspectionFormPage(QWidget):
+    changed = Signal()
+
     back_requested = Signal()
     continue_requested = Signal()
 
@@ -120,7 +122,9 @@ class InspectionFormPage(QWidget):
     def _update(self, name: str, value: object, property_field: bool = False) -> None:
         if self.report is not None and not self._loading:
             target = self.report.property if property_field else self.report
-            setattr(target, name, value)
+            if getattr(target, name) != value:
+                setattr(target, name, value)
+                self.changed.emit()
 
     def set_report(self, report: Report) -> None:
         """Load widgets without changing either the old or the new report."""

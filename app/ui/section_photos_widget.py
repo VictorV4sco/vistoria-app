@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from PIL.Image import DecompressionBombError
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFileDialog, QGroupBox, QLabel, QMessageBox, QPushButton, QVBoxLayout
 
 from app.models.photo import Photo
@@ -12,6 +13,8 @@ from app.ui.photo_editor_widget import PhotoEditorWidget
 
 
 class SectionPhotosWidget(QGroupBox):
+    changed = Signal()
+
     def __init__(self, section: Section, project_directory: Path | None = None) -> None:
         super().__init__("FOTOS")
         self.section = section
@@ -35,6 +38,7 @@ class SectionPhotosWidget(QGroupBox):
         self.editors = []
         for index, photo in enumerate(self.section.photos):
             editor = PhotoEditorWidget(photo, self.project_directory)
+            editor.changed.connect(self.changed.emit)
             editor.remove_requested.connect(lambda photo=photo: self._remove(photo))
             editor.move_requested.connect(lambda offset, photo=photo: self._move(photo, offset))
             editor.up_button.setEnabled(index > 0)
@@ -59,12 +63,18 @@ class SectionPhotosWidget(QGroupBox):
                 "Não foi possível importar a imagem. Verifique o arquivo e a pasta do projeto.",
             )
             return
+        self.changed.emit()
         self.refresh()
 
     def _remove(self, photo: Photo) -> None:
         self.section.remove_photo(photo)
+        self.changed.emit()
         self.refresh()
 
     def _move(self, photo: Photo, offset: int) -> None:
+        index = self.section.photos.index(photo)
+        if not 0 <= index + offset < len(self.section.photos):
+            return
         self.section.move_photo(photo, offset)
+        self.changed.emit()
         self.refresh()

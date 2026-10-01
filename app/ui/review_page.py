@@ -1,5 +1,6 @@
 """Edit complementary information, review and request Word generation."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -25,12 +26,15 @@ from app.ui.review_summary import review_summary
 
 
 class ReviewPage(QWidget):
+    changed = Signal()
+
     back_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         self.report: Report | None = None
         self.project_directory: Path | None = None
+        self.before_generate: Callable[[], bool] | None = None
         self._loading = False
         self._text_fields: dict[str, QLineEdit] = {}
         layout = QVBoxLayout(self)
@@ -107,7 +111,10 @@ class ReviewPage(QWidget):
 
     def _update(self, name: str, value: str) -> None:
         if self.report is not None and not self._loading:
-            setattr(self.report.complementary_information, name, value)
+            target = self.report.complementary_information
+            if getattr(target, name) != value:
+                setattr(target, name, value)
+                self.changed.emit()
 
     def set_report(self, report: Report, project_directory: Path | None = None) -> None:
         """Refresh widgets without changing the bound objects or a previous report."""
@@ -149,6 +156,8 @@ class ReviewPage(QWidget):
             self, "Salvar relatório Word", "relatorio-vistoria.docx", "Documento Word (*.docx)"
         )
         if not filename:
+            return
+        if self.before_generate is not None and not self.before_generate():
             return
         try:
             DocumentGenerator.generate(self.report, self.project_directory, Path(filename))

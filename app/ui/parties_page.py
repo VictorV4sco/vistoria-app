@@ -17,6 +17,8 @@ from app.models.report import Report
 
 
 class PartiesPage(QWidget):
+    changed = Signal()
+
     back_requested = Signal()
     continue_requested = Signal()
 
@@ -65,7 +67,10 @@ class PartiesPage(QWidget):
 
     def _update(self, role: str, name: str, value: str) -> None:
         if self.report is not None and not self._loading:
-            setattr(getattr(self.report, role), name, value)
+            target = getattr(self.report, role)
+            if getattr(target, name) != value:
+                setattr(target, name, value)
+                self.changed.emit()
 
     def set_report(self, report: Report) -> None:
         """Load values without mutating either report or replacing its parties."""

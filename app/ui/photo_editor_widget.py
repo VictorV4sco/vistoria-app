@@ -10,6 +10,8 @@ from app.models.photo import Photo
 
 
 class PhotoEditorWidget(QGroupBox):
+    changed = Signal()
+
     remove_requested = Signal()
     move_requested = Signal(int)
 
@@ -35,7 +37,7 @@ class PhotoEditorWidget(QGroupBox):
         caption = QVBoxLayout()
         caption.addWidget(QLabel("Legenda"))
         self.caption_field = QLineEdit(photo.caption)
-        self.caption_field.textChanged.connect(lambda value: setattr(photo, "caption", value))
+        self.caption_field.textChanged.connect(self._update_caption)
         caption.addWidget(self.caption_field)
         row.addLayout(caption)
         layout.addLayout(row)
@@ -49,3 +51,8 @@ class PhotoEditorWidget(QGroupBox):
         for button in (self.up_button, self.down_button, self.remove_button):
             buttons.addWidget(button)
         layout.addLayout(buttons)
+
+    def _update_caption(self, value: str) -> None:
+        if self.photo.caption != value:
+            self.photo.caption = value
+            self.changed.emit()

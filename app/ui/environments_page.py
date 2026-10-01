@@ -18,6 +18,8 @@ from app.ui.environment_editor_widget import EnvironmentEditorWidget
 
 
 class EnvironmentsPage(QWidget):
+    changed = Signal()
+
     back_requested = Signal()
     continue_requested = Signal()
 
@@ -73,6 +75,7 @@ class EnvironmentsPage(QWidget):
             return
         for index, section in enumerate(self.report.sections):
             editor = EnvironmentEditorWidget(section, self.project_directory)
+            editor.changed.connect(self.changed.emit)
             editor.remove_requested.connect(lambda section=section: self._remove(section))
             editor.move_requested.connect(
                 lambda offset, section=section: self._move(section, offset)
@@ -89,6 +92,7 @@ class EnvironmentsPage(QWidget):
         order = max((section.order for section in self.report.sections), default=-1) + 1
         section = Section(name="Novo ambiente", order=order)
         self.report.add_section(section)
+        self.changed.emit()
         self._refresh()
         editor = self.editors[-1]
         editor.name_field.setFocus()
@@ -97,9 +101,14 @@ class EnvironmentsPage(QWidget):
     def _remove(self, section: Section) -> None:
         if self.report is not None:
             self.report.remove_section(section)
+            self.changed.emit()
             self._refresh()
 
     def _move(self, section: Section, offset: int) -> None:
         if self.report is not None:
+            index = self.report.sections.index(section)
+            if not 0 <= index + offset < len(self.report.sections):
+                return
             self.report.move_section(section, offset)
+            self.changed.emit()
             self._refresh()
