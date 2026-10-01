@@ -34,7 +34,7 @@ def test_manual_cleanup_passes_current_and_preserves_state(qtbot, monkeypatch):
     assert window.debounce_timer.isActive()
 
 
-def test_cleanup_not_run_at_start_and_structural_error_is_friendly(qtbot, monkeypatch):
+def test_manual_cleanup_structural_error_is_friendly(qtbot, monkeypatch):
     run = Mock(side_effect=PermissionError("private details"))
     monkeypatch.setattr(CleanupService, "run", run)
     window = MainWindow()

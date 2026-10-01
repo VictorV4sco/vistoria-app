@@ -85,6 +85,8 @@ class MainWindow(QMainWindow):
         self.cleanup_action = QAction("Executar limpeza", self)
         self.cleanup_action.triggered.connect(self._run_cleanup)
         file_menu.addAction(self.cleanup_action)
+        self._automatic_cleanup_ran = False
+        QTimer.singleShot(0, self._run_automatic_cleanup)
 
     @property
     def initial_radio(self):
@@ -234,6 +236,22 @@ class MainWindow(QMainWindow):
                 self.autosave_timer.start()
         self._set_project(backup, directory)
         self.statusBar().showMessage("Backup restaurado com sucesso")
+
+    def _run_automatic_cleanup(self) -> None:
+        if self._automatic_cleanup_ran:
+            return
+        self._automatic_cleanup_ran = True
+        try:
+            result = CleanupService.run(self.app_paths, current_project=self.project_directory)
+        except Exception:
+            self.statusBar().showMessage("Não foi possível executar a limpeza automática")
+            return
+        if result.moved_to_trash or result.deleted or result.errors:
+            message = (f"Limpeza automática: {len(result.moved_to_trash)} movidos, "
+                       f"{len(result.deleted)} excluído(s)")
+            if result.errors:
+                message += "; alguns itens apresentaram erros"
+            self.statusBar().showMessage(message)
 
     def _run_cleanup(self) -> None:
         try:
