@@ -42,7 +42,7 @@ def dialogs(monkeypatch, tmp_path):
 
     def save(*args):
         calls["save"].append(args)
-        return str(tmp_path / "chosen.docx"), ""
+        return str(tmp_path / "project" / "relatorios" / "relatorio-vistoria.docx"), ""
 
     monkeypatch.setattr(QFileDialog, "getSaveFileName", save)
     monkeypatch.setattr(DocumentGenerator, "generate", lambda *args: calls["generate"].append(args))
@@ -122,9 +122,12 @@ def test_valid_fields_and_warnings_allow_generation(page, report, dialogs, tmp_p
         page.set_report(report, page.project_directory)
     before = deepcopy(report)
     page.generate_button.click()
-    assert dialogs["generate"] == [(report, tmp_path / "project", tmp_path / "chosen.docx")]
+    destination = page.project_directory / "relatorios" / "relatorio-vistoria.docx"
+    assert dialogs["generate"] == [(report, page.project_directory, destination)]
     assert dialogs["generate"][0][0] is report
-    assert dialogs["save"][0][2].endswith(".docx")
+    assert not dialogs["save"]
+    assert (page.project_directory / "relatorios").is_dir()
+    assert str(page.project_directory / "relatorios") in dialogs["success"][0][2]
     assert len(dialogs["success"]) == 1
     assert not dialogs["warning"]
     assert report == before
@@ -168,11 +171,10 @@ def test_missing_directory_blocks_generation(page, report, dialogs):
     assert "pasta do projeto" in dialogs["warning"][0][2]
 
 
-def test_cancel_does_not_generate(page, dialogs, monkeypatch):
-    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: ("", ""))
+def test_generation_does_not_open_save_dialog(page, dialogs):
     page.generate_button.click()
-    assert not dialogs["generate"]
-    assert not dialogs["success"]
+    assert not dialogs["save"]
+    assert dialogs["generate"]
 
 
 @pytest.mark.parametrize("error", [OSError("disk error"), RuntimeError("template error")])
@@ -236,3 +238,14 @@ def test_navigation_refreshes_summary_and_preserves_objects(qtbot, tmp_path):
     assert report.sections[0] is section
     assert section.photos[0] is photo
     assert report.complementary_information is complementary
+
+
+def test_report_directory_creation_error_is_friendly(page, dialogs):
+    directory = page.project_directory
+    directory.mkdir(parents=True)
+    (directory / "relatorios").write_text("Cannot create directory here")
+    page.generate_button.click()
+    assert not dialogs["generate"]
+    assert not dialogs["success"]
+    assert len(dialogs["warning"]) == 1
+    assert "Não foi possível gerar" in dialogs["warning"][0][2]

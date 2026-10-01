@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from PIL import Image
-from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QPushButton
+from PySide6.QtWidgets import QFileDialog, QInputDialog, QLabel, QMessageBox, QPushButton
 
 from app.models.complementary_information import ComplementaryInformation
 from app.models.party import Party
@@ -12,6 +12,7 @@ from app.models.report import Report
 from app.models.section import Section
 from app.services.document_generator import DocumentGenerator
 from app.services.photo_service import PhotoService
+from app.services.project_catalog import ProjectCatalogService, ProjectEntry
 from app.services.project_service import ProjectService
 from app.ui.main_window import MainWindow
 
@@ -29,7 +30,7 @@ def test_new_project_is_saved_and_bound(window, tmp_path, report_type):
     window.continue_button.click()
     directory = window.project_directory
     assert directory is not None
-    assert directory.parent == tmp_path
+    assert directory.parent == window.app_paths.projects_root
     assert directory.name.startswith("vistoria-")
     assert directory.is_dir()
     assert ProjectService.load(directory) == window.report
@@ -49,7 +50,7 @@ def test_new_project_is_saved_and_bound(window, tmp_path, report_type):
 
 
 @pytest.mark.parametrize("loaded", [False, True])
-@pytest.mark.parametrize("action", ["new", "open"])
+@pytest.mark.parametrize("action", ["open"])
 def test_cancel_keeps_state(window, tmp_path, monkeypatch, loaded, action):
     if loaded:
         window.continue_button.click()
@@ -60,9 +61,12 @@ def test_cancel_keeps_state(window, tmp_path, monkeypatch, loaded, action):
     load = Mock()
     constructor = Mock()
     monkeypatch.setattr(ProjectService, "save", save)
+    entry = ProjectEntry(tmp_path / "VistoriaApp" / "Projetos" / "project", "Projeto", 0)
+    monkeypatch.setattr(ProjectCatalogService, "list_projects", lambda *args: [entry])
     monkeypatch.setattr(ProjectService, "load", load)
     monkeypatch.setattr("app.ui.main_window.Report", constructor)
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: "")
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: ("", False))
+    window.app_paths.ensure_directories()
     before = list(tmp_path.iterdir())
     if action == "new":
         window.continue_button.click()
@@ -79,7 +83,7 @@ def test_cancel_keeps_state(window, tmp_path, monkeypatch, loaded, action):
 
 @pytest.fixture
 def stored_project(tmp_path):
-    directory = tmp_path / "existing"
+    directory = tmp_path / "VistoriaApp" / "Projetos" / "existing"
     report = Report(
         report_type="Final", title="Casa", inspection_date=date(2026, 10, 1),
         inspector_name="Ana", property=Property(property_type="Casa", address="Rua A"),
@@ -95,7 +99,7 @@ def stored_project(tmp_path):
 
 
 def open_stored(window, monkeypatch, directory):
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(directory))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: (args[3][0], True))
     window.start_page.open_button.click()
 
 
@@ -105,7 +109,8 @@ def test_open_preserves_everything_and_uses_loaded_object(window, stored_project
     load = Mock(return_value=loaded)
     monkeypatch.setattr(ProjectService, "load", load)
     open_stored(window, monkeypatch, directory)
-    load.assert_called_once_with(directory)
+    assert all(call.args == (directory,) for call in load.call_args_list)
+    assert load.call_count == 2
     assert window.report is loaded
     assert window.report == original
     assert window.project_directory == directory
@@ -165,6 +170,9 @@ def test_errors_are_friendly_and_preserve_current_project(
     messages = Mock()
     monkeypatch.setattr(QMessageBox, "warning", messages)
     failing = Mock(side_effect=OSError("private technical details"))
+    if action == "open":
+        entry = ProjectEntry(directory, "Projeto", 0)
+        monkeypatch.setattr(ProjectCatalogService, "list_projects", lambda *args: [entry])
     monkeypatch.setattr(ProjectService, "load" if action == "open" else "save", failing)
     if action == "save":
         window.save_action.trigger()
@@ -188,20 +196,23 @@ def test_corrupt_main_does_not_recover_backup(window, stored_project, monkeypatc
     ProjectService.save(report, directory)
     (directory / "projeto.json").write_text("broken", encoding="utf-8")
     messages = Mock()
-    monkeypatch.setattr(QMessageBox, "warning", messages)
+    monkeypatch.setattr(QMessageBox, "information", messages)
+    restore = Mock()
+    monkeypatch.setattr(ProjectService, "restore_backup", restore)
     open_stored(window, monkeypatch, directory)
     assert window.report is None
     assert window.project_directory is None
     assert window.pages.currentWidget() is window.start_page
     messages.assert_called_once()
     assert (directory / "projeto.json").read_text() == "broken"
+    restore.assert_not_called()
 
 
 def test_opened_project_generates_word(window, stored_project, monkeypatch, tmp_path):
     directory, _, _ = stored_project
     open_stored(window, monkeypatch, directory)
     window._show_review()
-    destination = tmp_path / "report.docx"
+    destination = directory / "relatorios" / "relatorio-vistoria.docx"
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(destination), ""))
     monkeypatch.setattr(QMessageBox, "information", Mock())
     warning = Mock()
@@ -249,7 +260,7 @@ def test_failed_initial_save_removes_only_new_folder(window, tmp_path, monkeypat
     window.continue_button.click()
     assert len(attempted) == 1
     assert not attempted[0].exists()
-    assert set(tmp_path.glob("vistoria-*")) == {current}
+    assert set(window.app_paths.projects_root.glob("vistoria-*")) == {current}
     assert marker.read_text() == "Keep parent contents"
     assert (current / "projeto.json").read_bytes() == original_bytes
     assert window.report is report

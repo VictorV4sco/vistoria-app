@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from app.services.project_service import ProjectService
 from app.ui.main_window import MainWindow
@@ -81,7 +81,6 @@ def test_bindings_do_not_start_debounce(window):
 
 @pytest.mark.parametrize("action", ["new", "open", "backup"])
 def test_project_replacement_cancels_old_debounce(window, monkeypatch, action):
-    directory = window.project_directory
     window.form_page.title_field.setText("Salvo")
     window._save_project()
     window.form_page.title_field.setText("Pendente")
@@ -94,7 +93,7 @@ def test_project_replacement_cancels_old_debounce(window, monkeypatch, action):
 
     monkeypatch.setattr(QMessageBox, "question", question)
     if action == "open":
-        monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(directory))
+        monkeypatch.setattr(QInputDialog, "getItem", lambda *args: (args[3][0], True))
     {"new": window._start_inspection, "open": window._open_project,
      "backup": window._recover_backup}[action]()
     assert not window.debounce_timer.isActive()

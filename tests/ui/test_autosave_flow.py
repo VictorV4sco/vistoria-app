@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
 from app.models.report import Report
 from app.services.document_generator import DocumentGenerator
@@ -65,8 +65,7 @@ def test_loading_and_unchanged_values_are_clean(window, monkeypatch):
     window.review_page.set_report(report, window.project_directory)
     window.form_page._update("title", "Título")
     assert not window.autosave_service.is_dirty
-    directory = window.project_directory
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(directory))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: (args[3][0], True))
     window._open_project()
     assert not window.autosave_service.is_dirty
 
@@ -151,16 +150,18 @@ def test_clean_tick_and_missing_project_do_not_save(window, monkeypatch):
 @pytest.mark.parametrize("choice,fails", [("Cancel", False), ("Discard", False),
                                          ("Save", False), ("Save", True)])
 def test_dirty_protection(window, tmp_path, monkeypatch, action, choice, fails):
-    target = tmp_path / "other"
+    target = window.app_paths.projects_root / "other"
     ProjectService.save(Report(title="Outro"), target)
     report, directory = window.report, window.project_directory
     window.form_page.title_field.setText("Editado")
     question = Mock(return_value=getattr(QMessageBox.StandardButton, choice))
-    folder = Mock(return_value=str(target if action == "open" else tmp_path))
+    folder = Mock(side_effect=lambda *args: (
+        next(label for label in args[3] if "(other)" in label), True
+    ))
     save = Mock(wraps=ProjectService.save) if not fails else Mock(side_effect=OSError("disk"))
     monkeypatch.setattr(QMessageBox, "question", question)
     monkeypatch.setattr(QMessageBox, "warning", Mock())
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", folder)
+    monkeypatch.setattr(QInputDialog, "getItem", folder)
     monkeypatch.setattr(ProjectService, "save", save)
     event = QCloseEvent()
     if action == "close":
@@ -175,7 +176,10 @@ def test_dirty_protection(window, tmp_path, monkeypatch, action, choice, fails):
     elif aborted:
         folder.assert_not_called()
     else:
-        folder.assert_called_once()
+        if action == "open":
+            folder.assert_called_once()
+        else:
+            folder.assert_not_called()
         assert window.report is not report
         assert not window.autosave_service.is_dirty
     if aborted or action == "close":
@@ -244,12 +248,9 @@ def test_word_saves_before_generation(window, tmp_path, monkeypatch, fails):
 
 @pytest.mark.parametrize("action", ["new", "open"])
 def test_clean_project_switch_does_not_ask(window, tmp_path, monkeypatch, action):
-    directory = window.project_directory
     question = Mock()
     monkeypatch.setattr(QMessageBox, "question", question)
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(
-        directory if action == "open" else tmp_path
-    ))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: (args[3][0], True))
     (window._start_inspection if action == "new" else window._open_project)()
     question.assert_not_called()
     assert not window.autosave_service.is_dirty

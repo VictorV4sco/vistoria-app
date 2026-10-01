@@ -41,7 +41,7 @@ class StartPage(QWidget):
         self.initial_radio.setChecked(True)
         start_layout.addWidget(type_box)
         start_layout.addWidget(QLabel(
-            "Escolha onde criar a nova vistoria. Use Salvar para guardar suas alterações."
+            "As vistorias são guardadas na pasta de projetos do VistoriaApp."
         ))
         start_layout.addStretch()
         self.continue_button = QPushButton("Nova vistoria")

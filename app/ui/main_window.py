@@ -8,10 +8,12 @@ from uuid import uuid4
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
-from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget
+from PySide6.QtWidgets import QInputDialog, QMainWindow, QMessageBox, QStackedWidget
 
 from app.models.report import Report
+from app.services.app_paths import AppPaths
 from app.services.autosave_service import AutosaveService
+from app.services.project_catalog import ProjectCatalogService
 from app.services.project_service import ProjectService
 from app.ui.environments_page import EnvironmentsPage
 from app.ui.inspection_form_page import InspectionFormPage
@@ -21,8 +23,11 @@ from app.ui.start_page import StartPage
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, project_directory: Path | None = None) -> None:
+    def __init__(
+        self, project_directory: Path | None = None, *, app_paths: AppPaths | None = None,
+    ) -> None:
         super().__init__()
+        self.app_paths = app_paths if app_paths is not None else AppPaths()
         self.project_directory = project_directory
         self.setWindowTitle("VistoriaApp")
         self.resize(640, 700)
@@ -110,16 +115,12 @@ class MainWindow(QMainWindow):
     def _create_inspection(self) -> None:
         if not self._confirm_pending_changes():
             return
-        parent = QFileDialog.getExistingDirectory(
-            self, "Escolher onde criar a vistoria", str(self.project_directory or "")
-        )
-        if not parent:
-            return
         report_type = "Inicial" if self.initial_radio.isChecked() else "Final"
         report = Report(report_type=report_type)
-        directory = Path(parent) / f"vistoria-{uuid4().hex}"
+        directory = self.app_paths.projects_root / f"vistoria-{uuid4().hex}"
         directory_created = False
         try:
+            self.app_paths.ensure_directories()
             # Reserve a unique folder; never overwrite an existing project.
             directory.mkdir(exist_ok=False)
             directory_created = True
@@ -131,7 +132,7 @@ class MainWindow(QMainWindow):
                     shutil.rmtree(directory)
             QMessageBox.warning(
                 self, "Não foi possível criar a vistoria",
-                "Não foi possível criar a vistoria. Verifique se a pasta escolhida "
+                "Não foi possível criar a vistoria. Verifique se a pasta de projetos "
                 "está disponível e se você tem permissão para gravar nela.",
             )
             return
@@ -144,11 +145,22 @@ class MainWindow(QMainWindow):
     def _load_project(self) -> None:
         if not self._confirm_pending_changes():
             return
-        selected = QFileDialog.getExistingDirectory(self, "Abrir pasta da vistoria")
-        if not selected:
-            return
-        directory = Path(selected)
         try:
+            self.app_paths.ensure_directories()
+            projects = ProjectCatalogService.list_projects(self.app_paths.projects_root)
+            if not projects:
+                QMessageBox.information(
+                    self, "Nenhuma vistoria disponível",
+                    "Não há vistorias válidas na pasta de projetos. Crie uma nova vistoria.",
+                )
+                return
+            labels = [project.label for project in projects]
+            selected, accepted = QInputDialog.getItem(
+                self, "Abrir vistoria existente", "Escolha a vistoria:", labels, 0, False
+            )
+            if not accepted:
+                return
+            directory = projects[labels.index(selected)].directory
             report = ProjectService.load(directory)
         except Exception:
             QMessageBox.warning(

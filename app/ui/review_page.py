@@ -5,7 +5,6 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -152,15 +151,12 @@ class ReviewPage(QWidget):
                 "Crie ou abra uma vistoria com uma pasta do projeto antes de gerar o Word.",
             )
             return
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Salvar relatório Word", "relatorio-vistoria.docx", "Documento Word (*.docx)"
-        )
-        if not filename:
-            return
         if self.before_generate is not None and not self.before_generate():
             return
+        destination = self.project_directory / "relatorios" / "relatorio-vistoria.docx"
         try:
-            DocumentGenerator.generate(self.report, self.project_directory, Path(filename))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            DocumentGenerator.generate(self.report, self.project_directory, destination)
         except Exception:
             # Keep template, image and filesystem failures inside the UI boundary.
             QMessageBox.warning(
@@ -169,4 +165,6 @@ class ReviewPage(QWidget):
                 "e se o arquivo está aberto em outro programa.",
             )
             return
-        QMessageBox.information(self, "Relatório gerado", "Relatório Word gerado com sucesso.")
+        QMessageBox.information(
+            self, "Relatório gerado", f"Relatório Word salvo com sucesso em:\n{destination}"
+        )
