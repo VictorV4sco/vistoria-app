@@ -1,7 +1,8 @@
 """Coordinate pages and local project persistence."""
 
 import shutil
-from contextlib import suppress
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from uuid import uuid4
 
@@ -56,6 +57,10 @@ class MainWindow(QMainWindow):
         self.autosave_timer.setInterval(60_000)
         self.autosave_timer.timeout.connect(self._autosave_tick)
         self.autosave_timer.start()
+        self.debounce_timer = QTimer(self)
+        self.debounce_timer.setInterval(2000)
+        self.debounce_timer.setSingleShot(True)
+        self.debounce_timer.timeout.connect(self._autosave_tick)
         file_menu = self.menuBar().addMenu("Arquivo")
         new_action = file_menu.addAction("Nova vistoria")
         new_action.triggered.connect(self._show_start)
@@ -88,7 +93,21 @@ class MainWindow(QMainWindow):
     def back_button(self):
         return self.form_page.back_button
 
+    @contextmanager
+    def _pause_debounce(self) -> Iterator[None]:
+        pending = self.debounce_timer.isActive()
+        self.debounce_timer.stop()
+        try:
+            yield
+        finally:
+            if pending and self.autosave_service.is_dirty:
+                self.debounce_timer.start()
+
     def _start_inspection(self) -> None:
+        with self._pause_debounce():
+            self._create_inspection()
+
+    def _create_inspection(self) -> None:
         if not self._confirm_pending_changes():
             return
         parent = QFileDialog.getExistingDirectory(
@@ -119,6 +138,10 @@ class MainWindow(QMainWindow):
         self._set_project(report, directory)
 
     def _open_project(self) -> None:
+        with self._pause_debounce():
+            self._load_project()
+
+    def _load_project(self) -> None:
         if not self._confirm_pending_changes():
             return
         selected = QFileDialog.getExistingDirectory(self, "Abrir pasta da vistoria")
@@ -138,6 +161,7 @@ class MainWindow(QMainWindow):
 
     def _set_project(self, report: Report, directory: Path) -> None:
         """Bind the service's Report to every page only after successful I/O."""
+        self.debounce_timer.stop()
         self.autosave_service = AutosaveService()
         self.report = report
         self.project_directory = directory
@@ -151,6 +175,10 @@ class MainWindow(QMainWindow):
         self._show_form()
 
     def _recover_backup(self) -> None:
+        with self._pause_debounce():
+            self._restore_backup()
+
+    def _restore_backup(self) -> None:
         if self.report is None or self.project_directory is None:
             return
         directory = self.project_directory
@@ -195,6 +223,7 @@ class MainWindow(QMainWindow):
         if self.report is not None and self.project_directory is not None:
             self.autosave_service.mark_dirty()
             self.statusBar().showMessage("Alterações não salvas")
+            self.debounce_timer.start()
 
     def _save_project(self) -> bool:
         return self._persist(manual=True)
@@ -205,6 +234,7 @@ class MainWindow(QMainWindow):
         if manual:
             self.autosave_service.mark_dirty()
         if not self.autosave_service.is_dirty:
+            self.debounce_timer.stop()
             return True
         try:
             self.autosave_service.save_if_needed(self.report, self.project_directory)
@@ -219,6 +249,7 @@ class MainWindow(QMainWindow):
                     "está disponível e se você tem permissão para gravar nela.",
                 )
             return False
+        self.debounce_timer.stop()
         self.statusBar().showMessage(
             f"Projeto salvo: {self.project_directory}" if manual else "Salvo automaticamente"
         )
@@ -244,7 +275,11 @@ class MainWindow(QMainWindow):
         return choice == QMessageBox.StandardButton.Discard
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self._confirm_pending_changes():
+        with self._pause_debounce():
+            can_close = self._confirm_pending_changes()
+        if can_close:
+            self.debounce_timer.stop()
+            self.autosave_timer.stop()
             event.accept()
         else:
             event.ignore()
