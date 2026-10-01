@@ -169,22 +169,7 @@ def test_navigation_preserves_photos(qtbot, tmp_path, monkeypatch):
     window.review_page.back_button.click()
     assert page.editors[0].photo_editors[0].photo is photo
     assert photo.caption == "Sala"
-    assert page.editors[0].project_directory == tmp_path / "project"
-
-
-def test_choose_project_directory(qtbot, tmp_path, monkeypatch):
-    window = MainWindow()
-    qtbot.addWidget(window)
-    window.continue_button.click()
-    window.form_page.continue_button.click()
-    window.parties_page.continue_button.click()
-    page = window.environments_page
-    page.add_button.click()
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(tmp_path))
-    page.directory_button.click()
-    assert window.project_directory == tmp_path
-    assert page.editors[0].project_directory == tmp_path
-    assert page.editors[0].add_photo_button.isEnabled()
+    assert page.editors[0].project_directory == window.project_directory
 
 
 def test_corrupt_image_does_not_change_section(editor, section, tmp_path, monkeypatch):

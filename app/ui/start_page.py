@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 class StartPage(QWidget):
     continue_requested = Signal()
+    open_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -40,10 +41,13 @@ class StartPage(QWidget):
         self.initial_radio.setChecked(True)
         start_layout.addWidget(type_box)
         start_layout.addWidget(QLabel(
-            "Continuar inicia uma nova vistoria e substitui o preenchimento atual."
+            "Escolha onde criar a nova vistoria. Use Salvar para guardar suas alterações."
         ))
         start_layout.addStretch()
-        self.continue_button = QPushButton("Continuar")
+        self.continue_button = QPushButton("Nova vistoria")
         self.continue_button.clicked.connect(self.continue_requested.emit)
         start_layout.addWidget(self.continue_button, alignment=Qt.AlignmentFlag.AlignRight)
 
+        self.open_button = QPushButton("Abrir vistoria existente")
+        self.open_button.clicked.connect(self.open_requested.emit)
+        start_layout.addWidget(self.open_button, alignment=Qt.AlignmentFlag.AlignRight)

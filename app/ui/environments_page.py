@@ -20,7 +20,6 @@ from app.ui.environment_editor_widget import EnvironmentEditorWidget
 class EnvironmentsPage(QWidget):
     back_requested = Signal()
     continue_requested = Signal()
-    directory_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -31,12 +30,6 @@ class EnvironmentsPage(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         self.title = QLabel("Ambientes da vistoria")
         layout.addWidget(self.title)
-        self.directory_button = QPushButton("Selecionar pasta do projeto")
-        self.directory_button.clicked.connect(self.directory_requested.emit)
-        layout.addWidget(self.directory_button)
-        self.directory_label = QLabel("Selecione uma pasta para importar fotos.")
-        self.directory_label.setWordWrap(True)
-        layout.addWidget(self.directory_label)
         self.add_button = QPushButton("Adicionar ambiente")
         self.add_button.setEnabled(False)
         self.add_button.clicked.connect(self._add)
@@ -67,10 +60,6 @@ class EnvironmentsPage(QWidget):
     def set_report(self, report: Report, project_directory: Path | None = None) -> None:
         self.report = report
         self.project_directory = project_directory
-        self.directory_label.setText(
-            str(project_directory)
-            if project_directory else "Selecione uma pasta para importar fotos."
-        )
         self.add_button.setEnabled(True)
         self._refresh()
 

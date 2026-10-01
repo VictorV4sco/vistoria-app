@@ -1,10 +1,15 @@
-"""Coordinate pages and the inspection held in memory."""
+"""Coordinate pages and local project persistence."""
 
+import shutil
+from contextlib import suppress
 from pathlib import Path
+from uuid import uuid4
 
-from PySide6.QtWidgets import QFileDialog, QMainWindow, QStackedWidget
+from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget
 
 from app.models.report import Report
+from app.services.project_service import ProjectService
 from app.ui.environments_page import EnvironmentsPage
 from app.ui.inspection_form_page import InspectionFormPage
 from app.ui.parties_page import PartiesPage
@@ -39,7 +44,18 @@ class MainWindow(QMainWindow):
         self.environments_page.back_requested.connect(self._show_parties)
         self.environments_page.continue_requested.connect(self._show_review)
         self.review_page.back_requested.connect(self._show_environments)
-        self.environments_page.directory_requested.connect(self._choose_project_directory)
+        self.start_page.open_requested.connect(self._open_project)
+        file_menu = self.menuBar().addMenu("Arquivo")
+        new_action = file_menu.addAction("Nova vistoria")
+        new_action.triggered.connect(self._show_start)
+        open_action = file_menu.addAction("Abrir vistoria existente")
+        open_action.setShortcut(QKeySequence.StandardKey.Open)
+        open_action.triggered.connect(self._open_project)
+        self.save_action = QAction("Salvar", self)
+        self.save_action.setShortcut(QKeySequence.StandardKey.Save)
+        self.save_action.setEnabled(False)
+        self.save_action.triggered.connect(self._save_project)
+        file_menu.addAction(self.save_action)
 
     @property
     def initial_radio(self):
@@ -58,13 +74,74 @@ class MainWindow(QMainWindow):
         return self.form_page.back_button
 
     def _start_inspection(self) -> None:
+        parent = QFileDialog.getExistingDirectory(
+            self, "Escolher onde criar a vistoria", str(self.project_directory or "")
+        )
+        if not parent:
+            return
         report_type = "Inicial" if self.initial_radio.isChecked() else "Final"
-        self.report = Report(report_type=report_type)
-        self.form_page.set_report(self.report)
-        self.parties_page.set_report(self.report)
-        self.environments_page.set_report(self.report, self.project_directory)
-        self.review_page.set_report(self.report, self.project_directory)
+        report = Report(report_type=report_type)
+        directory = Path(parent) / f"vistoria-{uuid4().hex}"
+        directory_created = False
+        try:
+            # Reserve a unique folder; never overwrite an existing project.
+            directory.mkdir(exist_ok=False)
+            directory_created = True
+            ProjectService.save(report, directory)
+        except Exception:
+            if directory_created:
+                # Cleanup must not replace the initial creation error.
+                with suppress(OSError):
+                    shutil.rmtree(directory)
+            QMessageBox.warning(
+                self, "Não foi possível criar a vistoria",
+                "Não foi possível criar a vistoria. Verifique se a pasta escolhida "
+                "está disponível e se você tem permissão para gravar nela.",
+            )
+            return
+        self._set_project(report, directory)
+
+    def _open_project(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Abrir pasta da vistoria")
+        if not selected:
+            return
+        directory = Path(selected)
+        try:
+            report = ProjectService.load(directory)
+        except Exception:
+            QMessageBox.warning(
+                self, "Não foi possível abrir a vistoria",
+                "Não foi possível abrir a vistoria. Verifique se escolheu a pasta "
+                "correta e se o arquivo do projeto está disponível e válido.",
+            )
+            return
+        self._set_project(report, directory)
+
+    def _set_project(self, report: Report, directory: Path) -> None:
+        """Bind the service's Report to every page only after successful I/O."""
+        self.report = report
+        self.project_directory = directory
+        self.form_page.set_report(report)
+        self.parties_page.set_report(report)
+        self.environments_page.set_report(report, directory)
+        self.review_page.set_report(report, directory)
+        self.save_action.setEnabled(True)
+        self.statusBar().showMessage(f"Projeto: {directory}")
         self._show_form()
+
+    def _save_project(self) -> None:
+        if self.report is None or self.project_directory is None:
+            return
+        try:
+            ProjectService.save(self.report, self.project_directory)
+        except Exception:
+            QMessageBox.warning(
+                self, "Não foi possível salvar a vistoria",
+                "Não foi possível salvar a vistoria. Verifique se a pasta do projeto "
+                "está disponível e se você tem permissão para gravar nela.",
+            )
+            return
+        self.statusBar().showMessage(f"Projeto salvo: {self.project_directory}")
 
     def _show_review(self) -> None:
         if self.report is not None:
@@ -75,12 +152,6 @@ class MainWindow(QMainWindow):
         if self.report is not None:
             self.environments_page.set_report(self.report, self.project_directory)
         self.pages.setCurrentWidget(self.environments_page)
-
-    def _choose_project_directory(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Selecionar pasta do projeto")
-        if directory:
-            self.project_directory = Path(directory)
-            self._show_environments()
 
     def _show_parties(self) -> None:
         if self.report is not None:

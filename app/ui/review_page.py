@@ -142,7 +142,7 @@ class ReviewPage(QWidget):
         if self.project_directory is None:
             QMessageBox.warning(
                 self, "Pasta do projeto não definida",
-                "Defina a pasta do projeto na tela Ambientes da vistoria antes de gerar o Word.",
+                "Crie ou abra uma vistoria com uma pasta do projeto antes de gerar o Word.",
             )
             return
         filename, _ = QFileDialog.getSaveFileName(

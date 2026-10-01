@@ -218,7 +218,7 @@ def test_navigation_refreshes_summary_and_preserves_objects(qtbot, tmp_path):
     window.environments_page.continue_button.click()
     page = window.review_page
     assert page.report is report
-    assert page.project_directory == tmp_path
+    assert page.project_directory == window.project_directory
     page.delivered_keys_field.setText("2")
     page.back_button.click()
     assert window.pages.currentWidget() is window.environments_page
