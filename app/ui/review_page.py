@@ -3,7 +3,8 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
@@ -99,12 +100,16 @@ class ReviewPage(QWidget):
         layout.addWidget(scroll)
         buttons = QHBoxLayout()
         self.back_button = QPushButton("Voltar")
+        self.open_report_folder_button = QPushButton("Abrir pasta do relatório")
+        self.open_report_folder_button.setEnabled(False)
+        self.open_report_folder_button.clicked.connect(self._open_report_folder)
         self.generate_button = QPushButton("Gerar relatório Word")
         self.generate_button.setEnabled(False)
         self.back_button.clicked.connect(self.back_requested.emit)
         self.generate_button.clicked.connect(self._generate)
         buttons.addWidget(self.back_button)
         buttons.addStretch()
+        buttons.addWidget(self.open_report_folder_button)
         buttons.addWidget(self.generate_button)
         layout.addLayout(buttons)
 
@@ -133,8 +138,31 @@ class ReviewPage(QWidget):
             warnings = review_warnings(report)
             self.warnings_label.setText("\n".join(warnings) if warnings else "Nenhum aviso.")
             self.generate_button.setEnabled(True)
+            self._refresh_report_folder_button()
         finally:
             self._loading = False
+
+    def _refresh_report_folder_button(self) -> None:
+        self.open_report_folder_button.setEnabled(
+            self.report is not None and self.project_directory is not None
+            and (self.project_directory / "relatorios").is_dir()
+        )
+
+    def _open_report_folder(self) -> None:
+        self._refresh_report_folder_button()
+        if not self.open_report_folder_button.isEnabled():
+            return
+        directory = self.project_directory / "relatorios"
+        try:
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory.resolve())))
+        except Exception:
+            opened = False
+        if not opened:
+            QMessageBox.warning(
+                self, "Não foi possível abrir a pasta do relatório",
+                "Não foi possível abrir a pasta do relatório. Verifique se ela está disponível "
+                "e tente novamente.",
+            )
 
     def _generate(self) -> None:
         if self.report is None:
@@ -147,8 +175,8 @@ class ReviewPage(QWidget):
             return
         if self.project_directory is None:
             QMessageBox.warning(
-                self, "Pasta do projeto não definida",
-                "Crie ou abra uma vistoria com uma pasta do projeto antes de gerar o Word.",
+                self, "Nenhuma vistoria aberta",
+                "Crie ou abra uma vistoria antes de gerar o Word.",
             )
             return
         if self.before_generate is not None and not self.before_generate():
@@ -165,6 +193,8 @@ class ReviewPage(QWidget):
                 "e se o arquivo está aberto em outro programa.",
             )
             return
+        self._refresh_report_folder_button()
         QMessageBox.information(
-            self, "Relatório gerado", f"Relatório Word salvo com sucesso em:\n{destination}"
+            self, "Relatório gerado",
+            f"Relatório gerado com sucesso.\n\nArquivo salvo em:\n{destination}",
         )

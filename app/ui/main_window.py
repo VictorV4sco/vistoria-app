@@ -171,8 +171,8 @@ class MainWindow(QMainWindow):
         except Exception:
             QMessageBox.warning(
                 self, "Não foi possível abrir a vistoria",
-                "Não foi possível abrir a vistoria. Verifique se escolheu a pasta "
-                "correta e se o arquivo do projeto está disponível e válido.",
+                "Não foi possível abrir a vistoria. Verifique se os arquivos da vistoria "
+                "estão disponíveis e válidos.",
             )
             return
         self._set_project(report, directory)
@@ -189,8 +189,18 @@ class MainWindow(QMainWindow):
         self.review_page.set_report(report, directory)
         self.save_action.setEnabled(True)
         self.recover_backup_action.setEnabled(True)
-        self.statusBar().showMessage(f"Projeto: {directory}")
+        self._update_window_title()
+        self.statusBar().showMessage(f"Vistoria aberta: {self._project_label()}")
         self._show_form()
+
+    def _project_label(self) -> str:
+        if self.report is None:
+            return ""
+        return self.report.title.strip() or self.report.report_type
+
+    def _update_window_title(self) -> None:
+        label = self._project_label()
+        self.setWindowTitle(f"VistoriaApp — {label}" if label else "VistoriaApp")
 
     def _recover_backup(self) -> None:
         with self._pause_debounce():
@@ -244,7 +254,10 @@ class MainWindow(QMainWindow):
         try:
             result = CleanupService.run(self.app_paths, current_project=self.project_directory)
         except Exception:
-            self.statusBar().showMessage("Não foi possível executar a limpeza automática")
+            if not self.statusBar().currentMessage():
+                self.statusBar().showMessage("Não foi possível executar a limpeza automática")
+            return
+        if self.statusBar().currentMessage():
             return
         if result.moved_to_trash or result.deleted or result.errors:
             message = (f"Limpeza automática: {len(result.moved_to_trash)} movidos, "
@@ -274,6 +287,7 @@ class MainWindow(QMainWindow):
 
     def _mark_dirty(self) -> None:
         if self.report is not None and self.project_directory is not None:
+            self._update_window_title()
             self.autosave_service.mark_dirty()
             self.statusBar().showMessage("Alterações não salvas")
             self.debounce_timer.start()
@@ -304,7 +318,7 @@ class MainWindow(QMainWindow):
             return False
         self.debounce_timer.stop()
         self.statusBar().showMessage(
-            f"Projeto salvo: {self.project_directory}" if manual else "Salvo automaticamente"
+            "Projeto salvo" if manual else "Salvo automaticamente"
         )
         return True
 

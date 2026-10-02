@@ -23,7 +23,10 @@ class SectionPhotosWidget(QGroupBox):
         self.content_layout = QVBoxLayout(self)
         self.add_button = QPushButton("Adicionar foto")
         self.add_button.setEnabled(project_directory is not None)
-        self.add_button.setToolTip("Selecione a pasta do projeto para importar fotos.")
+        self.add_button.setToolTip(
+            "Crie ou abra uma vistoria para adicionar fotos." if project_directory is None
+            else "Adicione fotos a este ambiente."
+        )
         self.add_button.clicked.connect(self._add)
         self.content_layout.addWidget(self.add_button)
         self.empty_label = QLabel("Nenhuma foto adicionada neste ambiente.")

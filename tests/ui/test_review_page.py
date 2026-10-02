@@ -1,7 +1,11 @@
+import os
+import subprocess
 from copy import deepcopy
 from datetime import date
+from unittest.mock import Mock
 
 import pytest
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.models.complementary_information import ComplementaryInformation
@@ -168,7 +172,8 @@ def test_missing_directory_blocks_generation(page, report, dialogs):
     page.generate_button.click()
     assert not dialogs["save"]
     assert not dialogs["generate"]
-    assert "pasta do projeto" in dialogs["warning"][0][2]
+    assert "Crie ou abra uma vistoria" in dialogs["warning"][0][2]
+    assert "com uma pasta" not in dialogs["warning"][0][2]
 
 
 def test_generation_does_not_open_save_dialog(page, dialogs):
@@ -249,3 +254,92 @@ def test_report_directory_creation_error_is_friendly(page, dialogs):
     assert not dialogs["success"]
     assert len(dialogs["warning"]) == 1
     assert "Não foi possível gerar" in dialogs["warning"][0][2]
+
+
+def test_report_folder_starts_disabled(qtbot, page, report):
+    empty = ReviewPage()
+    qtbot.addWidget(empty)
+    assert empty.open_report_folder_button.text() == "Abrir pasta do relatório"
+    assert not empty.open_report_folder_button.isEnabled()
+    assert not page.open_report_folder_button.isEnabled()
+    page.set_report(report)
+    assert not page.open_report_folder_button.isEnabled()
+
+
+def test_generation_enables_folder_without_opening_automatically(page, dialogs, monkeypatch):
+    open_url = Mock(return_value=True)
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    page.generate_button.click()
+    assert page.open_report_folder_button.isEnabled()
+    open_url.assert_not_called()
+    destination = page.project_directory / "relatorios" / "relatorio-vistoria.docx"
+    assert dialogs["success"][0][2] == (
+        f"Relatório gerado com sucesso.\n\nArquivo salvo em:\n{destination}"
+    )
+    page.open_report_folder_button.click()
+    open_url.assert_called_once()
+    url = open_url.call_args.args[0]
+    assert url.isLocalFile()
+    assert url.toLocalFile() == str(page.project_directory / "relatorios")
+
+
+def test_folder_availability_refreshes_when_switching_projects(page, report, tmp_path):
+    directory = page.project_directory
+    (directory / "relatorios").mkdir(parents=True)
+    page.set_report(report, directory)
+    assert page.open_report_folder_button.isEnabled()
+    page.set_report(report, tmp_path / "other")
+    assert not page.open_report_folder_button.isEnabled()
+    page.set_report(report, directory)
+    assert page.open_report_folder_button.isEnabled()
+
+
+def test_missing_folder_is_not_created_by_opening(page, dialogs, monkeypatch):
+    open_url = Mock()
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    page._open_report_folder()
+    assert not (page.project_directory / "relatorios").exists()
+    assert not page.open_report_folder_button.isEnabled()
+    open_url.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", [False, OSError("private Python details")])
+def test_folder_open_failure_is_friendly(page, dialogs, monkeypatch, failure):
+    page.generate_button.click()
+    open_url = Mock(side_effect=failure) if failure else Mock(return_value=False)
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    page.open_report_folder_button.click()
+    assert len(dialogs["warning"]) == 1
+    text = dialogs["warning"][0][2]
+    assert "Não foi possível abrir a pasta do relatório" in text
+    assert "private" not in text
+    assert "Traceback" not in text
+
+
+def test_open_report_folder_never_uses_shell(page, report, monkeypatch):
+    directory = page.project_directory / "relatorios"
+    directory.mkdir(parents=True)
+    page.set_report(report, page.project_directory)
+    forbidden = Mock(side_effect=AssertionError("Terminal commands must not be used"))
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(os, "system", forbidden)
+    open_url = Mock(return_value=True)
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    page.open_report_folder_button.click()
+    forbidden.assert_not_called()
+    open_url.assert_called_once()
+
+
+def test_folder_removed_after_refresh_does_not_open_or_recreate(page, report, monkeypatch):
+    directory = page.project_directory / "relatorios"
+    directory.mkdir(parents=True)
+    page.set_report(report, page.project_directory)
+    assert page.open_report_folder_button.isEnabled()
+    directory.rmdir()
+    open_url = Mock(return_value=True)
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    page.open_report_folder_button.click()
+    assert not page.open_report_folder_button.isEnabled()
+    assert not directory.exists()
+    open_url.assert_not_called()

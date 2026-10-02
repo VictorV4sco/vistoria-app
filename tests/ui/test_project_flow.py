@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from PIL import Image
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QLabel, QMessageBox, QPushButton
 
 from app.models.complementary_information import ComplementaryInformation
@@ -41,7 +42,7 @@ def test_new_project_is_saved_and_bound(window, tmp_path, report_type):
         assert page.report is window.report
     assert window.environments_page.project_directory == directory
     assert window.review_page.project_directory == directory
-    assert str(directory) in window.statusBar().currentMessage()
+    assert window.statusBar().currentMessage() == f"Vistoria aberta: {report_type}"
     first = directory
     window._show_start()
     window.continue_button.click()
@@ -218,10 +219,14 @@ def test_opened_project_generates_word(window, stored_project, monkeypatch, tmp_
     warning = Mock()
     monkeypatch.setattr(QMessageBox, "warning", warning)
     generate = Mock(wraps=DocumentGenerator.generate)
+    open_url = Mock(return_value=True)
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
     monkeypatch.setattr(DocumentGenerator, "generate", generate)
     window.review_page.generate_button.click()
     generate.assert_called_once_with(window.report, directory, destination)
     assert destination.is_file()
+    assert window.review_page.open_report_folder_button.isEnabled()
+    open_url.assert_not_called()
     warning.assert_not_called()
 
 
