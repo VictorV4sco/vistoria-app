@@ -90,8 +90,12 @@ def test_photo_tables_content_order_optimization_and_proportions(
                 extent = cell._tc.xpath(".//wp:extent")[0]
                 width, height = int(extent.get("cx")), int(extent.get("cy"))
                 assert width / height == pytest.approx(image.width / image.height, rel=1e-5)
-                assert width <= Cm(7)
-                assert height <= Cm(6.5)
+                assert width <= Cm(6)
+                assert height <= Cm(8)
+                with Image.open(BytesIO(source_bytes[expected[photo_index][0]])) as original:
+                    assert image.width / image.height == pytest.approx(
+                        original.width / original.height
+                    )
                 assert paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.CENTER
                 assert paragraphs[1].alignment == WD_ALIGN_PARAGRAPH.CENTER
             photo_index += 1

@@ -1,8 +1,8 @@
+from datetime import date
 from unittest.mock import Mock
 
 import pytest
 from PIL import Image
-from PySide6.QtCore import QDate
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
@@ -40,7 +40,9 @@ def test_text_changes_mark_dirty(window, page, field, value):
 
 @pytest.mark.parametrize("field", ["inspection_date_field", "issue_date_field"])
 def test_dates_mark_dirty(window, field):
-    getattr(window.form_page, field).setDate(QDate(2026, 10, 1))
+    widget = getattr(window.form_page, field)
+    widget.setText("01/10/2026")
+    widget.editingFinished.emit()
     assert window.autosave_service.is_dirty
 
 
@@ -218,7 +220,7 @@ def test_review_checkpoint(window, monkeypatch, fails):
 def test_word_saves_before_generation(window, tmp_path, monkeypatch, fails):
     report = window.report
     report.title = "Casa"
-    report.inspection_date = QDate(2026, 10, 1).toPython()
+    report.inspection_date = date(2026, 10, 1)
     report.inspector_name = "Ana"
     report.property.property_type = "Casa"
     report.property.address = "Rua"

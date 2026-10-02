@@ -8,6 +8,7 @@ def test_override_and_idempotent_structure(tmp_path):
     assert paths.app_root == tmp_path / "VistoriaApp"
     assert paths.projects_root == paths.app_root / "Projetos"
     assert paths.trash_root == paths.app_root / "Lixeira"
+    assert paths.landlords_file == paths.app_root / "locadores.json"
     paths.ensure_directories()
     paths.ensure_directories()
     assert paths.app_root.is_dir()

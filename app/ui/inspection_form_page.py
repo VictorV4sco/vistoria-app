@@ -1,12 +1,12 @@
 """Edit inspection and property data directly on the current Report."""
 
-from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
-    QDateEdit,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.report import Report
+from app.utils.dates import format_date_input, parse_date_input
 
 
 class InspectionFormPage(QWidget):
@@ -29,7 +30,9 @@ class InspectionFormPage(QWidget):
         self.report: Report | None = None
         self._loading = False
         self._text_fields: dict[str, QLineEdit] = {}
-        self._date_fields: dict[str, QDateEdit] = {}
+        self._date_fields: dict[str, QLineEdit] = {}
+        self._date_errors: dict[str, QLabel] = {}
+        self._pending_dates: set[str] = set()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         scroll = QScrollArea()
@@ -50,21 +53,20 @@ class InspectionFormPage(QWidget):
         for name, label in (
             ("inspection_date", "Data da vistoria"), ("issue_date", "Data de emissão"),
         ):
-            field = QDateEdit()
-            field.setCalendarPopup(True)
-            field.setDisplayFormat("dd/MM/yyyy")
-            field.setDateRange(QDate(1, 1, 1), QDate(9999, 12, 31))
-            field.setSpecialValueText("Não informada")
-            field.setDate(field.minimumDate())
-            field.setToolTip("Use a data mínima para deixar como Não informada.")
-            field.dateChanged.connect(
-                lambda value, name=name, field=field: self._update(
-                    name, None if value == field.minimumDate() else value.toPython()
-                )
-            )
+            field = QLineEdit()
+            field.setPlaceholderText("Ex.: 02/10/2026")
+            field.setToolTip("Digite a data no formato DD/MM/AAAA.")
+            field.textChanged.connect(lambda _value, name=name: self._date_text_changed(name))
+            field.editingFinished.connect(lambda name=name: self._commit_date(name))
             self._date_fields[name] = field
             setattr(self, f"{name}_field", field)
             inspection_layout.addRow(label, field)
+            error = QLabel("Informe uma data válida no formato DD/MM/AAAA.")
+            error.setWordWrap(True)
+            error.hide()
+            self._date_errors[name] = error
+            setattr(self, f"{name}_error_label", error)
+            inspection_layout.addRow("", error)
         self._add_text(inspection_layout, "inspector_name", "Responsável pela vistoria")
         content_layout.addWidget(inspection_box)
 
@@ -94,6 +96,7 @@ class InspectionFormPage(QWidget):
             ("postal_code", "CEP"),
         ):
             self._add_text(property_layout, name, label, property_field=True)
+        self.postal_code_field.setPlaceholderText("Ex.: 25000-000")
         content_layout.addWidget(property_box)
         content_layout.addStretch()
         scroll.setWidget(content)
@@ -102,11 +105,44 @@ class InspectionFormPage(QWidget):
         self.back_button = QPushButton("Voltar")
         self.continue_button = QPushButton("Continuar")
         self.back_button.clicked.connect(self.back_requested.emit)
-        self.continue_button.clicked.connect(self.continue_requested.emit)
+        self.continue_button.clicked.connect(self._continue)
         buttons.addWidget(self.back_button)
         buttons.addStretch()
         buttons.addWidget(self.continue_button)
         layout.addLayout(buttons)
+
+    def _date_text_changed(self, name: str) -> None:
+        if not self._loading:
+            self._pending_dates.add(name)
+            self._date_errors[name].hide()
+
+    def _commit_date(self, name: str) -> bool:
+        if self._loading or self.report is None or name not in self._pending_dates:
+            return True
+        field = self._date_fields[name]
+        text = field.text()
+        value = parse_date_input(text)
+        valid = not text.strip() or value is not None
+        self._date_errors[name].setVisible(not valid)
+        field.setToolTip(
+            "Digite a data no formato DD/MM/AAAA." if valid
+            else "Informe uma data válida no formato DD/MM/AAAA."
+        )
+        if valid:
+            self._pending_dates.discard(name)
+            self._update(name, value)
+        return valid
+
+    def validate_dates(self) -> bool:
+        """Commit edited dates; keep invalid text and the last valid model value."""
+        invalid = [name for name in self._date_fields if not self._commit_date(name)]
+        if invalid:
+            self._date_fields[invalid[0]].setFocus()
+        return not invalid
+
+    def _continue(self) -> None:
+        if self.validate_dates():
+            self.continue_requested.emit()
 
     def _add_text(
         self, layout: QFormLayout, name: str, label: str, property_field: bool = False,
@@ -137,7 +173,10 @@ class InspectionFormPage(QWidget):
                 field.setText(getattr(target, name))
             for name, field in self._date_fields.items():
                 value = getattr(report, name)
-                field.setDate(QDate(value) if value is not None else field.minimumDate())
+                field.setText(format_date_input(value))
+                field.setToolTip("Digite a data no formato DD/MM/AAAA.")
+                self._date_errors[name].hide()
+            self._pending_dates.clear()
             property_type = report.property.property_type
             if self.property_type_field.findText(property_type) < 0:
                 self.property_type_field.addItem(property_type)

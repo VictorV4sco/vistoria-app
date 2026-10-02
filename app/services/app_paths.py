@@ -10,6 +10,7 @@ class AppPaths:
         self.app_root = Path(app_root) if app_root is not None else self.default_root()
         self.projects_root = self.app_root / "Projetos"
         self.trash_root = self.app_root / "Lixeira"
+        self.landlords_file = self.app_root / "locadores.json"
 
     @staticmethod
     def default_root() -> Path:

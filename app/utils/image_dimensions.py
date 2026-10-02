@@ -1,7 +1,7 @@
 """Physical photo dimensions for the report's two-column layout."""
 
-MAX_PHOTO_WIDTH_CM = 7.0
-MAX_PHOTO_HEIGHT_CM = 6.5
+MAX_PHOTO_WIDTH_CM = 6.0
+MAX_PHOTO_HEIGHT_CM = 8.0
 PHOTO_DPI = 96
 
 

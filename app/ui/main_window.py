@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.pages)
         self.start_page = StartPage()
         self.form_page = InspectionFormPage()
-        self.parties_page = PartiesPage()
+        self.parties_page = PartiesPage(app_paths=self.app_paths)
         self.environments_page = EnvironmentsPage()
         self.review_page = ReviewPage()
         for page in (
@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
         for page in (self.form_page, self.parties_page,
                      self.environments_page, self.review_page):
             page.changed.connect(self._mark_dirty)
-        self.review_page.before_generate = self._save_checkpoint
+        self.review_page.before_generate = self._prepare_generation
         self.autosave_timer = QTimer(self)
         self.autosave_timer.setInterval(60_000)
         self.autosave_timer.timeout.connect(self._autosave_tick)
@@ -352,11 +352,22 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def _show_review(self) -> None:
+        if not self._validate_form_dates():
+            return
         if not self._save_checkpoint():
             return
         if self.report is not None:
             self.review_page.set_report(self.report, self.project_directory)
         self.pages.setCurrentWidget(self.review_page)
+
+    def _validate_form_dates(self) -> bool:
+        if self.form_page.validate_dates():
+            return True
+        self.pages.setCurrentWidget(self.form_page)
+        return False
+
+    def _prepare_generation(self) -> bool:
+        return self._validate_form_dates() and self._save_checkpoint()
 
     def _show_environments(self) -> None:
         if self.report is not None:

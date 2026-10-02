@@ -92,6 +92,7 @@ openai.json
 config.json
 config.local.json
 settings.local.json
+locadores.json
 *.local
 
 # ============================================================
