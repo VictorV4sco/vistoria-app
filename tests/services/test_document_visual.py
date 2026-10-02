@@ -14,9 +14,9 @@ from app.services.document_generator import DocumentGenerator
 
 
 @pytest.mark.parametrize("pixels, expected", [
-    ((2400, 1200), (7.0, 3.5)),
-    ((1200, 2400), (3.25, 6.5)),
-    ((1600, 1600), (6.5, 6.5)),
+    ((2400, 1200), (6.0, 3.0)),
+    ((1200, 2400), (4.0, 8.0)),
+    ((1600, 1600), (6.0, 6.0)),
     ((96, 48), (2.54, 1.27)),
 ])
 def test_photo_size_fits_box_without_upscaling(pixels: tuple, expected: tuple) -> None:
