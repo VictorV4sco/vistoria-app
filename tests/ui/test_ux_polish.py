@@ -6,7 +6,7 @@ from PySide6.QtCore import QCoreApplication
 
 from app.models.report import Report
 from app.models.section import Section
-from app.services.cleanup_service import CleanupResult, CleanupService
+from app.services.cleanup_service import CleanupService
 from app.services.project_service import ProjectService
 from app.ui.main_window import MainWindow
 from app.ui.section_photos_widget import SectionPhotosWidget
@@ -33,7 +33,8 @@ def test_photo_tooltip_matches_managed_storage(qtbot, tmp_path):
 @pytest.mark.parametrize("action", ["create", "open"])
 def test_file_menu_availability(window, action):
     actions = {action.text(): action for action in window.menuBar().actions()[0].menu().actions()}
-    for label in ("Nova vistoria", "Abrir vistoria existente", "Executar limpeza"):
+    assert "Executar limpeza" not in actions
+    for label in ("Nova vistoria", "Abrir vistoria existente"):
         assert actions[label].isEnabled()
     for label in ("Salvar", "Recuperar backup"):
         assert not actions[label].isEnabled()
@@ -86,17 +87,12 @@ def test_navigation_and_rebinding_do_not_mark_dirty(window):
 
 @pytest.mark.parametrize("status", ["Alterações não salvas", "Salvo automaticamente",
                                    "Projeto salvo", "Backup restaurado com sucesso"])
-@pytest.mark.parametrize("fails", [False, True])
-def test_cleanup_feedback_does_not_replace_project_status(
-    qtbot, tmp_path, monkeypatch, status, fails,
-):
-    run = Mock(side_effect=OSError("private")) if fails else Mock(
-        return_value=CleanupResult(deleted=[tmp_path / "old"])
-    )
+def test_startup_preserves_project_status_without_cleanup(qtbot, monkeypatch, status):
+    run = Mock()
     monkeypatch.setattr(CleanupService, "run", run)
     window = MainWindow()
     qtbot.addWidget(window)
     window.statusBar().showMessage(status)
     QCoreApplication.processEvents()
-    run.assert_called_once()
+    run.assert_not_called()
     assert window.statusBar().currentMessage() == status

@@ -1,5 +1,15 @@
 # Especificação do MVP v1.0 — VistoriaApp
 
+## Política de retenção vigente
+
+Atualmente, os projetos são mantidos localmente por tempo indeterminado.
+A política automática de retenção está desabilitada. Não há limpeza na
+inicialização, em background ou pelo menu. Itens já existentes na Lixeira
+não são restaurados nem excluídos automaticamente.
+
+As referências abaixo à política de 7/30 dias e à restauração descrevem
+planejamento histórico, inativo e reservado para uma decisão futura.
+
 ## 1. Visão geral
 
 O **VistoriaApp** será uma aplicação desktop simples para padronização e geração de relatórios de vistoria de imóveis.
@@ -31,9 +41,7 @@ O sistema deverá permitir:
 - salvar o progresso automaticamente;
 - recuperar projetos após fechamento inesperado;
 - manter projetos locais sem banco de dados;
-- mover projetos inativos para uma lixeira interna;
-- restaurar projetos da lixeira;
-- excluir definitivamente projetos antigos;
+- manter projetos locais por tempo indeterminado;
 - gerar um relatório final em Word (`.docx`);
 - permitir que o usuário escolha onde salvar o Word;
 - manter o documento final editável;
@@ -54,7 +62,7 @@ O MVP deverá incluir:
 - autosave;
 - recuperação após falha;
 - projetos recentes;
-- lixeira interna;
+- infraestrutura de lixeira interna reservada para uso futuro;
 - geração de Word;
 - template de relatório;
 - fotos com legendas;
@@ -805,9 +813,15 @@ Projeto v2
 
 ---
 
-# 30. Limpeza automática
+# 30. Política de retenção
 
-Regra padrão:
+Projetos são preservados por tempo indeterminado. A limpeza automática e a
+ação manual de limpeza estão desabilitadas. O CleanupService permanece
+isolado, sem acesso pelo fluxo normal do aplicativo.
+
+## Referência histórica — política inativa
+
+Regra anteriormente prevista:
 
 ```text
 7 dias sem alteração
@@ -856,8 +870,8 @@ A primeira execução poderá solicitar:
 - Nome da empresa
 - Logo
 - Pasta de projetos
-- Prazo para mover à lixeira
-- Prazo para exclusão definitiva
+- Prazo para mover à lixeira (planejado; inativo)
+- Prazo para exclusão definitiva (planejado; inativo)
 
 ## 32.2 Configurações disponíveis
 
@@ -870,7 +884,7 @@ A primeira execução poderá solicitar:
 
 - Pasta dos projetos
 
-### Limpeza automática
+### Limpeza automática (planejada; desabilitada)
 
 - Dias até a lixeira
 - Dias até exclusão definitiva
@@ -1270,7 +1284,7 @@ autosave_service
 → salvamento periódico
 
 cleanup_service
-→ limpeza e lixeira
+→ infraestrutura de limpeza e lixeira (inativa)
 
 document_generator
 → geração do Word

@@ -13,7 +13,6 @@ from PySide6.QtWidgets import QInputDialog, QMainWindow, QMessageBox, QStackedWi
 from app.models.report import Report
 from app.services.app_paths import AppPaths
 from app.services.autosave_service import AutosaveService
-from app.services.cleanup_service import CleanupService
 from app.services.project_catalog import ProjectCatalogService
 from app.services.project_service import ProjectService
 from app.ui.environments_page import EnvironmentsPage
@@ -82,11 +81,6 @@ class MainWindow(QMainWindow):
         self.recover_backup_action.setEnabled(False)
         self.recover_backup_action.triggered.connect(self._recover_backup)
         file_menu.addAction(self.recover_backup_action)
-        self.cleanup_action = QAction("Executar limpeza", self)
-        self.cleanup_action.triggered.connect(self._run_cleanup)
-        file_menu.addAction(self.cleanup_action)
-        self._automatic_cleanup_ran = False
-        QTimer.singleShot(0, self._run_automatic_cleanup)
 
     @property
     def initial_radio(self):
@@ -246,44 +240,6 @@ class MainWindow(QMainWindow):
                 self.autosave_timer.start()
         self._set_project(backup, directory)
         self.statusBar().showMessage("Backup restaurado com sucesso")
-
-    def _run_automatic_cleanup(self) -> None:
-        if self._automatic_cleanup_ran:
-            return
-        self._automatic_cleanup_ran = True
-        try:
-            result = CleanupService.run(self.app_paths, current_project=self.project_directory)
-        except Exception:
-            if not self.statusBar().currentMessage():
-                self.statusBar().showMessage("Não foi possível executar a limpeza automática")
-            return
-        if self.statusBar().currentMessage():
-            return
-        if result.moved_to_trash or result.deleted or result.errors:
-            message = (f"Limpeza automática: {len(result.moved_to_trash)} movidos, "
-                       f"{len(result.deleted)} excluído(s)")
-            if result.errors:
-                message += "; alguns itens apresentaram erros"
-            self.statusBar().showMessage(message)
-
-    def _run_cleanup(self) -> None:
-        try:
-            result = CleanupService.run(self.app_paths, current_project=self.project_directory)
-        except Exception:
-            QMessageBox.warning(
-                self, "Não foi possível executar a limpeza",
-                "Não foi possível executar a limpeza. Verifique se a pasta do aplicativo "
-                "está disponível e se você tem permissão para acessá-la.",
-            )
-            return
-        QMessageBox.information(
-            self, "Limpeza concluída",
-            "Limpeza concluída.\n\n"
-            f"Movidos para a lixeira: {len(result.moved_to_trash)}\n"
-            f"Excluídos definitivamente: {len(result.deleted)}\n"
-            f"Ignorados: {len(result.skipped)}\n"
-            f"Erros: {len(result.errors)}",
-        )
 
     def _mark_dirty(self) -> None:
         if self.report is not None and self.project_directory is not None:

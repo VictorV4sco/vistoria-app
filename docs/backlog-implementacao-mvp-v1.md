@@ -1,5 +1,15 @@
 # Backlog de Implementação — VistoriaApp MVP v1.0
 
+## Política de retenção vigente
+
+Atualmente, os projetos são mantidos localmente por tempo indeterminado.
+A política automática de retenção está desabilitada. Não há limpeza na
+inicialização, em background ou pelo menu. Itens já existentes na Lixeira
+não são restaurados nem excluídos automaticamente.
+
+As referências abaixo à política de 7/30 dias e à restauração descrevem
+planejamento histórico, inativo e reservado para uma decisão futura.
+
 ## 1. Estratégia geral
 
 A implementação seguirá uma ordem de baixo risco:
@@ -12,7 +22,7 @@ A implementação seguirá uma ordem de baixo risco:
 6. Geração do Word
 7. Regras de revisão e validação
 8. Interface gráfica
-9. Lixeira e limpeza automática
+9. Infraestrutura de lixeira e limpeza automática (atualmente desabilitada)
 10. Configurações
 11. Integração final
 12. Empacotamento e release
@@ -411,7 +421,7 @@ Criar a janela principal e navegação.
 - novo relatório;
 - abrir relatório;
 - acesso a configurações;
-- acesso à lixeira;
+- acesso à lixeira (planejado; inativo);
 - exibir versão.
 
 ## Critério de aceite
@@ -543,11 +553,13 @@ Erros obrigatórios impedem geração; avisos permitem prosseguir.
 
 ---
 
-# Épico 14 — Lixeira e limpeza
+# Épico 14 — Lixeira e limpeza (referência histórica; desabilitado)
 
 ## Objetivo
 
-Gerenciar projetos antigos sem exclusão imediata.
+A versão atual preserva todos os projetos por tempo indeterminado.
+O serviço permanece com testes isolados, sem coordenação pela UI.
+As regras e tarefas deste épico são históricas e não estão ativas.
 
 ## Regras
 
@@ -584,8 +596,8 @@ Implementar:
 - nome da empresa;
 - logo;
 - pasta de projetos;
-- dias até lixeira;
-- dias até exclusão;
+- dias até lixeira (planejado; inativo);
+- dias até exclusão (planejado; inativo);
 - modelo padrão;
 - versão;
 - link do GitHub;
@@ -657,7 +669,7 @@ Editar projeto
 → recuperar versão válida
 ```
 
-### Cenário 4
+### Cenário 4 — histórico/futuro; inativo na versão atual
 
 ```text
 Projeto fica inativo

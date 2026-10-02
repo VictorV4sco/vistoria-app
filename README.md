@@ -30,9 +30,7 @@ O MVP atual inclui:
 - backup local do projeto;
 - recuperação manual de backup;
 - armazenamento centralizado dos projetos;
-- lixeira interna;
-- limpeza automática de projetos antigos;
-- proteção contra exclusão automática;
+- retenção local de projetos por tempo indeterminado;
 - abertura da pasta do relatório gerado.
 
 ## Tipos de vistoria
@@ -69,16 +67,15 @@ Os relatórios gerados permanecem independentes do aplicativo e podem ser editad
 
 O envio para Google Drive ou outros serviços é feito manualmente pelo usuário.
 
-## Política de limpeza
+## Política de retenção
 
-O VistoriaApp possui uma política de retenção local:
+Atualmente, os projetos são mantidos localmente por tempo indeterminado.
+A política automática de retenção está desabilitada: não há limpeza na
+inicialização, em background ou pelo menu do aplicativo.
 
-- projetos sem atividade por 7 dias podem ser movidos para a lixeira interna;
-- projetos que permanecerem na lixeira por 30 dias podem ser excluídos definitivamente;
-- projetos marcados como protegidos não são removidos automaticamente;
-- o projeto atualmente aberto nunca é movido durante a limpeza.
-
-A limpeza é executada automaticamente uma vez por sessão e também pode ser iniciada manualmente pelo menu do aplicativo.
+Projetos existentes em `Projetos/` e `Lixeira/` permanecem intactos, sem
+movimentação, restauração ou exclusão automática. A infraestrutura de limpeza
+permanece reservada para uma decisão futura.
 
 ## Tecnologias
 
