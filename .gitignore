@@ -163,7 +163,13 @@ Lixeira/
 # PyInstaller
 # ============================================================
 
+# Keep the build specification under version control.
 *.spec
+!VistoriaApp.spec
+*.manifest
+*.toc
+*.pyz
+*.pkg
 
 # ============================================================
 # Installer / release artifacts

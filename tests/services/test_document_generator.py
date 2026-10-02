@@ -1,6 +1,8 @@
+import sys
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
+from runpy import run_path
 from zipfile import ZipFile
 
 import pytest
@@ -58,6 +60,38 @@ def test_generate_valid_docx_with_general_fields(
     assert "{{" not in text
     assert report == before
     assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_default_template_comes_from_packaged_resources(tmp_path, report, monkeypatch):
+    import app.services.document_generator as generator
+
+    bundle = tmp_path / "bundle" / "_internal"
+    template = bundle / "templates" / "modelo_relatorio.docx"
+    template.parent.mkdir(parents=True)
+    template.write_bytes(generator.TEMPLATE_PATH.read_bytes())
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    monkeypatch.chdir(tmp_path)
+    # Simulate the module's initial import by the frozen entrypoint.
+    packaged = run_path(generator.__file__)
+    assert packaged["TEMPLATE_PATH"] == template
+    destination = tmp_path / "report.docx"
+    packaged["DocumentGenerator"].generate(report, tmp_path / "project", destination)
+    with ZipFile(destination) as archive:
+        assert archive.testzip() is None
+    assert report.title in "\n".join(p.text for p in Document(destination).paragraphs)
+
+
+def test_explicit_template_injection_is_preserved(tmp_path, report, monkeypatch):
+    import app.services.document_generator as generator
+
+    template = tmp_path / "custom.docx"
+    document = Document()
+    document.add_paragraph("Template injetado: {{ title }}")
+    document.save(template)
+    monkeypatch.setattr(generator, "TEMPLATE_PATH", template)
+    destination = tmp_path / "report.docx"
+    DocumentGenerator.generate(report, tmp_path / "project", destination)
+    assert Document(destination).paragraphs[0].text == f"Template injetado: {report.title}"
 
 
 def test_all_fields_appear_in_the_correct_document_section(tmp_path: Path, report: Report) -> None:
