@@ -2,6 +2,7 @@ import os
 import subprocess
 from copy import deepcopy
 from datetime import date
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -280,7 +281,7 @@ def test_generation_enables_folder_without_opening_automatically(page, dialogs, 
     open_url.assert_called_once()
     url = open_url.call_args.args[0]
     assert url.isLocalFile()
-    assert url.toLocalFile() == str(page.project_directory / "relatorios")
+    assert Path(url.toLocalFile()) == page.project_directory / "relatorios"
 
 
 def test_folder_availability_refreshes_when_switching_projects(page, report, tmp_path):

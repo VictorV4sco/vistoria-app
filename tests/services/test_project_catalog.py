@@ -12,8 +12,11 @@ def test_catalog_only_valid_direct_children_sorted_by_activity(tmp_path):
     ProjectService.save(Report(title="Casa", report_type="Final",
                                inspection_date=date(2026, 10, 1)), first)
     ProjectService.save(Report(), second)
-    os.utime(first / "projeto.json", ns=(10, 10))
-    os.utime(second / "projeto.json", ns=(20, 20))
+    # Separate activity by a day so coarse filesystem timestamps preserve the order.
+    older = 1_700_000_000
+    newer = older + 86_400
+    os.utime(first / "projeto.json", (older, older))
+    os.utime(second / "projeto.json", (newer, newer))
     (root / "file.txt").write_text("ignored")
     (root / "invalid").mkdir()
     (root / "invalid" / "projeto.json").write_text("broken")
